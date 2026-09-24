@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="PARTYTARGETWATCH_ANNOUNCE" header="PARTYTARGETWATCH" category="ADDONS">
+        PartyTargetWatch_AnnounceTarget();
+    </Binding>
+</Bindings>

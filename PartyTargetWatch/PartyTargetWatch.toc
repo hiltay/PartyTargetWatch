@@ -1,11 +1,13 @@
 ## Interface: 120100
 ## Title: PartyTargetWatch
 ## Title-zhCN: PartyTargetWatch 队友目标
-## Notes: Shows the current selected target of each group member.
-## Notes-zhCN: 实时显示队伍成员当前选中的目标；输入 /ptw 查看命令。
+## Notes: Group targets, raid markers, manual calls, and optional public focus sharing.
+## Notes-zhCN: 队友目标与标记、快速通报和可选焦点共享；输入 /ptw settings 设置。
 ## Author: PartyTargetWatch contributors
-## Version: 0.1.0
+## Version: 0.2.0
 ## SavedVariables: PartyTargetWatchDB
 ## IconTexture: Interface\Icons\Ability_Hunter_SniperShot
 
+Communication.lua
+Settings.lua
 PartyTargetWatch.lua

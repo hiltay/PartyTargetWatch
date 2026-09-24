@@ -63,16 +63,17 @@ class DeliveryTests(unittest.TestCase):
 
     def test_release_zip_exact_contents_and_determinism(self) -> None:
         self.run_tool("package.py")
-        archive_path = self.repo / "dist" / "PartyTargetWatch-0.1.0.zip"
+        archive_path = self.repo / "dist" / "PartyTargetWatch-0.2.0.zip"
         initial = archive_path.read_bytes()
         expected = {f"{ADDON}/{ADDON}.lua", f"{ADDON}/{ADDON}.toc",
+                    f"{ADDON}/Communication.lua", f"{ADDON}/Settings.lua", f"{ADDON}/Bindings.xml",
                     f"{ADDON}/README.md", f"{ADDON}/LICENSE", f"{ADDON}/CHANGELOG.md"}
         with zipfile.ZipFile(archive_path) as archive:
             self.assertEqual(set(archive.namelist()), expected)
             self.assertIsNone(archive.testzip())
             for name in expected:
                 relative = name.split("/", 1)[1]
-                source = self.repo / ADDON / relative if relative.endswith((".lua", ".toc")) else self.repo / relative
+                source = self.repo / ADDON / relative if relative.endswith((".lua", ".xml", ".toc")) else self.repo / relative
                 self.assertEqual(archive.read(name), source.read_bytes())
         self.run_tool("package.py")
         self.assertEqual(archive_path.read_bytes(), initial)
@@ -122,6 +123,13 @@ class DeliveryTests(unittest.TestCase):
         toc = self.repo / ADDON / f"{ADDON}.toc"
         with toc.open("a", encoding="utf-8") as stream:
             stream.write("\n../escape.lua\n")
+        self.run_tool("package.py", success=False)
+
+    def test_packaging_rejects_malformed_bindings(self) -> None:
+        binding = self.repo / ADDON / "Bindings.xml"
+        binding.write_text("<Bindings><Binding>", encoding="utf-8")
+        self.run_tool("package.py", success=False)
+        binding.write_text("<Ui />", encoding="utf-8")
         self.run_tool("package.py", success=False)
 
     def test_install_rejects_hardlinked_destination(self) -> None:

@@ -1,21 +1,23 @@
-## 0.1.0 — Initial Beta
+## 0.2.0 — Beta
 
-- Added a movable display of the player's, party members', and raid members' currently selected targets.
-- Added a two-column layout for rosters over 20 members, supporting up to 40.
-- Added Simplified Chinese settings, sample preview, visibility controls, position locking, and 60%–200% scaling.
-- Added `/ptw` and `/partytargetwatch` commands and saved window settings.
-- Targeted WoW Retail 12.1.0 / TOC 120100; distributed under the MIT License.
+- Added target raid markers and per-scene visibility controls.
+- Added manual target calls through a button, member rows, `/ptw announce`, and a user-assigned key binding; calls are throttled and require public data and a group.
+- Added three independent, default-off controls: focus column, optional focus sharing, and chat declaration recording.
+- Added roster-validated public focus snapshots with a 12-second expiry and explicit unavailable/restricted/disabled states.
+- Added strict Chinese interrupt declarations for eight raid markers, a cancellation phrase, and a 300-second expiry. Declared assignments are clearly labeled; readable automatic focus has priority.
+- Added separate communication/settings modules and `Bindings.xml` to the release package. Secret values are never transmitted; no external service bypass is provided.
 
-Live checks confirmed loading after `/reload`, opening settings, toggling preview, scaling from 100% to 110% and back, and updating the player's own target name. Party, raid, combat, and setting persistence have not yet been verified in the live client. Complete compatibility and error-free operation are not established.
+Version 0.2.0 has passed offline mock and delivery checks only. Its new features have not been live-tested. Version 0.1.0's historical solo checks do not validate this version; group/raid play, combat restrictions, cross-client delivery and in-game persistence remain unverified.
 
 ---
 
-## 0.1.0 — 首个测试版
+## 0.2.0 — 测试版
 
-- 新增可移动监控窗口，显示自己、小队与团队成员当前选中的目标。
-- 超过 20 名成员时使用双列布局，最多支持 40 人。
-- 新增简体中文设置、示例预览、显示控制、位置锁定及 60%–200% 缩放。
-- 新增 `/ptw`、`/partytargetwatch` 命令与窗口设置保存。
-- 面向正式服 12.1.0 / TOC 120100，采用 MIT 许可证。
+- 新增目标团队标记和按场景显示筛选。
+- 新增按钮、成员行、`/ptw announce` 及用户自行绑定按键的手动目标通报；需组队、公开可读信息并受节流限制。
+- 新增默认关闭且独立的焦点列、焦点共享、聊天声明记录三个开关。
+- 共享仅采用当前组员的公开焦点快照，12 秒过期，明确区分不可用、受限和关闭状态。
+- 严格识别八种标记的中文打断声明与取消消息，300 秒过期，标注为“约定”；可读自动焦点优先。
+- 发行包新增独立通信/设置模块与 `Bindings.xml`；不传输秘密值，不提供外部服务绕过。
 
-已实机确认：`/reload` 后加载、打开设置、切换预览、100% → 110% → 100% 缩放，以及自身目标名称实时更新。多人小队、团本、战斗和设置持久化尚未实机验证；尚不能认定完全兼容或所有场景均无错误。
+本版仅完成离线 mock 与交付检查，新增功能未实机验证。0.1.0 的历史单人实测不代表本版通过；小队/团本、战斗限制、跨客户端送达与游戏内持久化仍待验证。

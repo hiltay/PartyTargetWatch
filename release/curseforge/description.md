@@ -1,83 +1,77 @@
 # PartyTargetWatch
 
-See who your group members currently have selected in a compact, movable window. PartyTargetWatch is an independent addon for World of Warcraft Retail. When playing solo, it shows your own selected target.
+An independent WoW Retail addon that displays group members and their selected targets, with manual target calls and optional focus information. **The in-game interface is currently Simplified Chinese.**
 
-**The in-game interface is currently in Simplified Chinese.** Slash commands use English keywords.
+## Features and use
 
-## Features
+- Solo, party and raid rosters up to 40 members, with two columns above 20 members.
+- Target raid markers, a movable and lockable window, 60%–200% scaling, and sample preview.
+- Visibility settings for the open world, resting areas, dungeons (including Mythic+), raids, scenarios, battlegrounds and arenas. Instance type takes priority; preview ignores scene filters.
+- A target-call button, clickable member rows, `/ptw announce`, and an optional key binding assigned by you in the game's key-binding settings. No keys are assigned automatically.
 
-- Displays each member's name next to their currently selected target.
-- Supports solo play, parties, and raids of up to 40 members; larger rosters use two columns.
-- Refreshes the visible display approximately every 0.2 seconds.
-- Includes a draggable title, position locking, a separate settings window, and 60%–200% scaling.
-- Offers a clearly labeled sample preview for adjusting the layout while solo.
-- Stores the window's position, scale, visibility, and lock setting.
+Use `/ptw` to show the window, `/ptw settings` for settings, `/ptw test` for preview, and `/ptw help` for commands. `/partytargetwatch` is an alias. Install the addon folder in the Retail client's `Interface/AddOns` folder.
 
-The display uses information available through the game API. An unavailable target may mean that no target is selected or that the client cannot currently provide that target's information. A selected target does not establish who a member is attacking, healing, or casting at. The addon displays information and does not automatically select targets or perform combat actions.
+Manual calls use instance chat, raid chat, or party chat, in that order. They require a group, readable public data, and at least three seconds between calls. Preview cannot send calls. Target selection does not prove who someone is attacking, healing or casting at; the addon does not select targets or perform combat actions automatically.
 
-## Getting started
+## Three optional focus controls
 
-Install the `PartyTargetWatch` folder inside your Retail client's `Interface/AddOns` folder, enable the addon, then enter the game.
+All three switches are **off by default**:
 
-- `/ptw` — show the live display.
-- `/ptw settings` — open settings.
-- `/ptw test` — toggle the sample preview.
-- `/ptw unlock` or `/ptw lock` — change position locking.
-- `/ptw scale 1` — set the scale; accepted range is `0.6` to `2`.
-- `/ptw hide` — hide the display.
-- `/ptw reset` — restore this addon's default display settings.
-- `/ptw help` — show command help.
+- **Show focus column:** controls only whether the column is visible.
+- **Share focus:** sends your own publicly readable focus and accepts compatible snapshots from current group members. Both sides must install the addon and enable sharing. Snapshots expire after 12 seconds without an update.
+- **Record chat interrupt declarations:** independently records explicit statements from current group members. The speaker does not need the addon.
 
-`/partytargetwatch` is an alias for `/ptw`.
+Hiding the column or window does not turn off sharing or declaration recording. Disable their individual switches to stop them. Received focus data and declarations are not saved between sessions.
 
-## Version 0.1.0 — Beta
+Declarations must be the complete message `我打断` followed by exactly one of `星星`, `圆圈`, `菱形`, `三角`, `月亮`, `方块`, `叉叉`, or `骷髅`; the canonical forms `我打断{rt1}` through `我打断{rt8}` are also accepted. `取消打断` cancels the speaker's declaration. Extra wording, line breaks and casual mentions are ignored. Only party, raid and instance-group chat is considered.
 
-Targets Retail **12.1.0**, with TOC interface version **120100**. Live testing has confirmed loading after `/reload`, opening settings, toggling the sample preview, changing scale from 100% to 110% and back, and updating the player's own selected-target name.
+Declarations appear in yellow as **约定 (declared assignment)**, expire after 300 seconds, and clear on leaving the group, changing scenes or disabling recording. They do not establish anyone's real focus. A readable automatic focus takes priority. During local chat lockdown, automatic snapshots are hidden; existing public declarations may remain until expiry.
 
-**Party, raid, combat, and saved-setting persistence have not yet been tested in the live client.** Offline tests cover additional behavior, but do not reproduce all game restrictions. This first beta does not claim complete compatibility or error-free behavior in every situation.
+## 0.2.0 Beta: limitations and testing
 
-Please report problems using the issue tracker linked below, including the addon version, game version, and steps to reproduce them. Remove personal information from any logs or screenshots before sharing.
+Targets Retail **12.1.0 / TOC 120100**. Version 0.2.0 has passed offline mock tests, but its new features have **not been tested in the live game**. Earlier solo checks of version 0.1.0 do not validate this version. Group play, combat restrictions, cross-client delivery and in-game setting persistence still require live verification.
+
+Game restrictions can cover an entire active Mythic+ run, not just combat. Secret values are never serialized for transmission. Ordinary chat or external services cannot recover restricted real focus data; this addon uses no external bridge. A successful chat API call is not a delivery receipt. Complete compatibility or error-free operation is not established.
+
+Report problems using the issue link below, with the addon/game version and reproduction steps. Remove personal information from logs or screenshots before sharing.
 
 ---
 
 ## 简体中文
 
-PartyTargetWatch（队友目标）是《魔兽世界》正式服的独立插件，在一个可移动的小窗口中显示“成员 → 当前选中的目标”。单人时显示自己的目标。
+PartyTargetWatch（队友目标）是《魔兽世界》正式服的独立插件，显示成员当前选中的目标，提供手动目标通报和可选焦点信息。**游戏内界面目前为简体中文。**
 
-**游戏内界面目前为简体中文，命令使用英文关键词。**
+### 功能与使用
 
-### 功能
+- 支持单人、小队和最多 40 人团队；超过 20 人使用双列。
+- 显示目标团队标记，支持拖动、锁定、60%–200% 缩放和示例预览。
+- 可按野外、主城/旅店休息区、地下城（含大秘境）、团本、场景战役、战场和竞技场选择显示；副本类型优先，预览忽略场景筛选。
+- 点击“通报目标”、成员行或输入 `/ptw announce` 可通报目标；也可在游戏按键设置中自行绑定。插件不自动分配或覆盖按键。
 
-- 显示成员名字与其当前选中的目标。
-- 支持单人、小队与最多 40 名团队成员；超过 20 人时使用双列。
-- 可见窗口约每 0.2 秒刷新。
-- 支持拖动标题、锁定位置、独立设置窗口及 60%–200% 缩放。
-- 提供明确标注的示例预览，方便未组队时调整布局。
-- 保存窗口的位置、缩放、显示状态与锁定设置。
+`/ptw` 显示窗口，`/ptw settings` 打开设置，`/ptw test` 切换预览，`/ptw help` 查看命令。`/partytargetwatch` 为等价命令。插件文件夹安装到正式服 `Interface/AddOns` 中。
 
-目标信息取决于游戏 API 当前允许查询的内容。“无目标 / 不可见”可能表示没有选择目标，也可能表示客户端暂时无法提供该目标的信息。选中目标不代表正在攻击、治疗或对其施法。插件只显示信息，不自动选中目标或执行战斗操作。
+通报依次选择副本队伍、团队、小队频道；需已组队且信息公开可读，至少间隔 3 秒，预览时不能发送。选中目标不等于正在攻击、治疗或施法；插件不自动选目标或执行战斗操作。
 
-### 使用方法
+### 三个焦点开关
 
-将 `PartyTargetWatch` 文件夹安装到正式服客户端的 `Interface/AddOns` 中，启用插件后进入游戏。
+三个开关**默认均关闭**：
 
-- `/ptw`：显示实时窗口。
-- `/ptw settings`：打开设置。
-- `/ptw test`：开启或关闭示例预览。
-- `/ptw unlock` / `/ptw lock`：解锁或锁定位置。
-- `/ptw scale 1`：设置缩放，有效范围为 `0.6` 到 `2`。
-- `/ptw hide`：隐藏窗口。
-- `/ptw reset`：恢复本插件的默认显示设置。
-- `/ptw help`：显示命令帮助。
+- **显示队友焦点列**：只控制列是否显示。
+- **启用焦点共享**：双方均需安装并启用，各自发送公开可读的自身焦点；12 秒未更新即过期。
+- **记录聊天中的打断声明**：独立记录当前组员明确发出的约定，声明者无需安装插件。
 
-`/partytargetwatch` 与 `/ptw` 等价。
+隐藏窗口或列不会停止共享或声明记录，请取消相应开关。接收的焦点和声明不会跨会话保存。
 
-### 0.1.0 测试版的验证范围
+只接受队伍、团队和副本队伍聊天中的完整消息：“我打断”加“星星、圆圈、菱形、三角、月亮、方块、叉叉、骷髅”之一，或 `我打断{rt1}` 至 `我打断{rt8}`。“取消打断”清除本人声明；额外前后文、换行与任意提及不算声明。
 
-面向正式服 **12.1.0**，TOC 接口版本为 **120100**。已实机确认：`/reload` 后加载、打开设置、切换示例预览、100% → 110% → 100% 缩放，以及自身当前目标名称实时更新。
+声明显示为黄色**“约定”**，300 秒过期，离组、换场景或关闭记录时清除，不能证明队友真的设置了该焦点。可读的自动焦点优先；本地聊天锁定隐藏自动缓存，但已有公开声明可保留至过期。
 
-**多人小队、团本、战斗和设置持久化尚未实机验证。** 离线测试覆盖了部分其他行为，但不能模拟游戏中的全部限制。本首个测试版不承诺所有场景完全兼容或完全无错误。
+### 0.2.0 测试版的范围与限制
 
-问题可通过文末的反馈链接提交，请提供插件版本、游戏版本与复现步骤。分享日志或截图前请移除私人信息。
+面向正式服 **12.1.0 / TOC 120100**。本版通过了离线 mock 测试，**新增功能尚未实机验证**；0.1.0 的单人历史实测不能作为本版验证。多人、战斗限制、跨客户端送达与游戏内设置持久化仍待实测。
+
+大秘境等限制可能覆盖整段活动，而不只是战斗。秘密值不进入通信；普通聊天和外部服务也不能恢复受限的真实焦点，本项目不提供外部桥接。发送 API 调用成功不代表已送达，不承诺所有场景完全兼容或完全无错误。
+
+反馈请提供插件/游戏版本及复现步骤，分享日志或截图前移除私人信息。
 
 [Source / 源代码](https://github.com/hiltay/PartyTargetWatch) · [Issues / 问题反馈](https://github.com/hiltay/PartyTargetWatch/issues) · [MIT License / 许可证](https://github.com/hiltay/PartyTargetWatch/blob/main/LICENSE)

@@ -10,6 +10,7 @@ import re
 import stat
 import sys
 import zipfile
+import xml.etree.ElementTree as ET
 
 ADDON = "PartyTargetWatch"
 REPO = Path(os.path.abspath(Path(__file__).parent.parent))
@@ -71,8 +72,8 @@ def release_payload() -> tuple[str, str, dict[str, bytes]]:
             relative = PurePosixPath(entry)
             if (relative.is_absolute() or ":" in entry or
                     any(part in ("", ".", "..") for part in entry.split("/")) or
-                    relative.suffix.lower() != ".lua"):
-                raise ValueError(f"TOC must list relative Lua paths only: {line!r}")
+                    relative.suffix.lower() not in (".lua", ".xml")):
+                raise ValueError(f"TOC must list relative Lua/XML paths only: {line!r}")
             if entry.casefold() in {item.casefold() for item in entries}:
                 raise ValueError(f"Duplicate TOC entry: {entry}")
             entries.append(entry)
@@ -85,8 +86,19 @@ def release_payload() -> tuple[str, str, dict[str, bytes]]:
     if not entries:
         raise ValueError("TOC does not list any Lua files")
     listed = {f"{ADDON}.toc", *entries}
+    # WoW discovers root Bindings.xml separately; it is not a TOC UI document.
+    bindings = source / "Bindings.xml"
+    if bindings.is_file():
+        reject_links(bindings)
+        try:
+            root = ET.fromstring(bindings.read_bytes())
+        except ET.ParseError as error:
+            raise ValueError(f"Invalid Bindings.xml: {error}") from error
+        if root.tag != "Bindings" or not root.findall("Binding"):
+            raise ValueError("Bindings.xml must contain a Bindings root and Binding entries")
+        listed.add("Bindings.xml")
     actual = {path.relative_to(source).as_posix() for path in files
-              if path.suffix.lower() in (".lua", ".toc")}
+              if path.suffix.lower() in (".lua", ".xml", ".toc")}
     if listed != actual:
         raise ValueError(f"TOC/source mismatch; missing={sorted(listed - actual)}, "
                          f"unlisted={sorted(actual - listed)}")
