@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">PartyTargetWatch</title>
+  <desc id="desc">Three original teal member symbols connect to an arrow pointing at an amber target.</desc>
+  <rect width="512" height="512" fill="#0B1722"/>
+  <rect x="20" y="20" width="472" height="472" rx="90" fill="#102735" stroke="#214251" stroke-width="4"/>
+  <g fill="none" stroke="#3B8B92" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M148 144H184V368H148"/>
+    <path d="M148 256H268"/>
+  </g>
+  <g fill="#70E6D4">
+    <circle cx="106" cy="125" r="20"/>
+    <path d="M74 168C74 144 138 144 138 168V181H74Z"/>
+    <circle cx="106" cy="237" r="20"/>
+    <path d="M74 280C74 256 138 256 138 280V293H74Z"/>
+    <circle cx="106" cy="349" r="20"/>
+    <path d="M74 392C74 368 138 368 138 392V405H74Z"/>
+  </g>
+  <path d="M208 256H290M272 238L290 256L272 274" fill="none" stroke="#B6FFF0" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="382" cy="256" r="64" fill="#132F3A" stroke="#FFCA72" stroke-width="13"/>
+  <circle cx="382" cy="256" r="37" fill="none" stroke="#FFCA72" stroke-width="9"/>
+  <circle cx="382" cy="256" r="12" fill="#FFCA72"/>
+</svg>

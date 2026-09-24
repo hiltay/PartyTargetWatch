@@ -1,0 +1,1 @@
+A lightweight WoW Retail display of party and raid members' selected targets, with a movable window and Simplified Chinese UI.

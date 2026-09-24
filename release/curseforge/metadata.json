@@ -1,0 +1,39 @@
+{
+  "name": "PartyTargetWatch",
+  "game": "World of Warcraft",
+  "flavor": "Retail",
+  "version": "0.1.0",
+  "game_versions": ["12.1.0"],
+  "toc_interface": 120100,
+  "license": "MIT",
+  "source_url": "https://github.com/hiltay/PartyTargetWatch",
+  "issues_url": "https://github.com/hiltay/PartyTargetWatch/issues",
+  "recommended_release_type": "beta",
+  "release_type_reason": "Only solo basics have been verified in the live client; party, raid, combat, and setting persistence remain unverified.",
+  "in_game_ui_locales": ["zhCN"],
+  "description_locales": ["enUS", "zhCN"],
+  "summary_file": "summary.txt",
+  "description_file": "description.md",
+  "changelog_file": "changelog.md",
+  "icon_file": "icon.png",
+  "icon_vector_source": "icon.svg",
+  "icon_dimensions": {"width": 400, "height": 400},
+  "icon_512_source": "icon-512.png",
+  "icon_rights": "Original vector artwork created for PartyTargetWatch, distributed under the MIT License; no third-party game, platform, or addon artwork used.",
+  "archive_relative_path": "../../dist/PartyTargetWatch-0.1.0.zip",
+  "live_verified": [
+    "Loading after /reload",
+    "Opening the separate settings window",
+    "Toggling sample preview",
+    "Changing scale from 100% to 110% and back to 100%",
+    "Updating the player's own selected-target name"
+  ],
+  "not_live_verified": [
+    "Party behavior",
+    "Raid behavior",
+    "Combat behavior",
+    "Saved-setting persistence"
+  ],
+  "compatibility_note": "Target version and TOC declaration are not a guarantee of full compatibility. Complete error-free behavior has not been established.",
+  "publication_status": "prepared"
+}
