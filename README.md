@@ -1,0 +1,111 @@
+# PartyTargetWatch · 队友目标
+
+独立的《魔兽世界》正式服插件，用一个可移动窗口显示自己及小队、团队成员**当前选中的目标**。界面与命令提示为简体中文。
+
+当前版本：`0.1.0`。TOC 接口版本：`120100`。该编号是加载声明；客户端 API、战斗限制与实际显示效果仍需在对应游戏版本中验证。
+
+## 功能
+
+- 每行显示“成员 → 当前目标”；离线成员显示“离线”。
+- 单人时显示自己，小队最多 5 人，团队最多 40 人；超过 20 人时分两列。
+- 大约每 0.2 秒刷新可见窗口；响应换目标、组队和成员连接等事件。
+- 拖动窗口标题调整位置，点击“锁定”固定位置。
+- 点击“设置”调整 60%–200% 整体大小、X/Y 位置偏移，以及显示、隐藏、锁定、居中、恢复默认。
+- 点击“预览”显示 5 行示例数据，方便在未组队时调整布局。
+- 位置、大小、锁定与显示状态存储在 `PartyTargetWatchDB`，重载界面后保留；预览状态不保存。
+
+窗口展示游戏 API 当时允许读取的目标信息。“无目标 / 不可见”可能表示没有选择目标，也可能表示该目标暂时不可查询。API 读取失败时可能显示“不可用”。选中目标本身不能证明成员正在攻击、治疗或施法。插件仅显示信息，不发送聊天或插件通信消息，不自动选中目标或执行战斗操作。
+
+## 安装与更新
+
+### 从 ZIP 安装
+
+1. 退出游戏，打开对应正式服客户端的 `Interface/AddOns` 文件夹。
+2. 解压发行包，将其中的 `PartyTargetWatch` 文件夹放入 `AddOns`。
+3. 确认文件结构是 `Interface/AddOns/PartyTargetWatch/PartyTargetWatch.toc`，避免多套一层文件夹。
+4. 启动游戏，在角色选择界面的插件列表启用 `PartyTargetWatch`。
+5. 进入游戏输入 `/ptw` 显示窗口，或输入 `/ptw settings` 打开设置。
+
+更新前可手动备份现有的 `PartyTargetWatch` 文件夹。游戏的 SavedVariables 位于 `WTF` 下；保留这些文件即可保留插件设置。
+
+### 从本地仓库安装
+
+工具需要 Python 3.10 或更高版本，仅使用标准库。在仓库根目录运行，**将示例路径替换为实际客户端路径**：
+
+```powershell
+python tools/install.py --addons-dir "D:\World of Warcraft\_retail_\Interface\AddOns"
+```
+
+安装器要求显式提供已存在的 `Interface/AddOns` 目录，只向其中的 `PartyTargetWatch` 子目录写入发布文件。已有安装会先完整备份到仓库内的 `local-backups/`，并校验备份文件 SHA256；不会删除已有文件，也不会清理旧版本遗留文件。它不修改 `WTF` 或 SavedVariables。
+
+安装器拒绝符号链接、Windows 目录联接等重解析点，以及待覆盖的硬链接文件。安装前后会读取其他插件文件计算 SHA256，确认路径清单与内容未变；结果记录在已被 Git 忽略的 `validation/local-install.json`。校验失败时以非零退出码结束，报告可用于检查原因。请在安装期间关闭游戏与插件更新器，避免同时改动文件。若文件写入中途失败，已有安装的备份会保留；脚本不会自动回滚。
+
+## 命令
+
+`/partytargetwatch` 与 `/ptw` 等价。
+
+| 命令 | 效果 |
+| --- | --- |
+| `/ptw` 或 `/ptw show` | 显示实时窗口，并结束预览 |
+| `/ptw hide` | 隐藏监控窗口 |
+| `/ptw settings` 或 `/ptw config` | 打开设置窗口 |
+| `/ptw unlock` | 解锁拖动并显示窗口 |
+| `/ptw lock` | 锁定位置并显示窗口 |
+| `/ptw test` | 开启或结束示例预览，并显示窗口 |
+| `/ptw scale 1` | 设置整体缩放；有效范围为 `0.6` 到 `2` |
+| `/ptw reset` | 恢复本插件的默认位置、大小、显示及锁定状态，结束预览 |
+| `/ptw help` | 输出命令帮助 |
+
+设置窗口的位置输入使用当前锚点的偏移量：X 正值向右，Y 正值向上。点击“窗口居中”可将锚点与偏移重置到屏幕中心。设置窗口可拖动，按 Esc 关闭。
+
+## 本地开发与打包
+
+```text
+PartyTargetWatch/          游戏加载的 Lua 与 TOC
+tools/package.py          校验 TOC 并生成发行 ZIP
+tools/install.py          显式目标路径的本地安装器
+README.md
+LICENSE
+CHANGELOG.md
+```
+
+在仓库根目录运行：
+
+```powershell
+python tools/package.py
+```
+
+生成 `dist/PartyTargetWatch-0.1.0.zip`，版本号来自 TOC。脚本检查 TOC 中每个 Lua 文件确实存在，并拒绝未列入 TOC 的 Lua/TOC 文件。ZIP 只包含一个 `PartyTargetWatch/` 顶层目录，其内是 TOC、加载的 Lua、README、MIT 许可证和更新记录；开发工具、测试依赖、本地备份、安装报告与 Git 数据均不进入发行包。生成后会重新读取 ZIP 校验清单及内容，并输出包的 SHA256。
+
+本地 Git 用于保留源码与文档历史。`dist/`、`local-backups/`、测试依赖和本地安装报告均已忽略；提交前用 `git status` 和 `git diff --staged` 检查内容。当前工作流不自动创建远端、不上传仓库，也不发布社区版本。以后公开发布前，应完成游戏内验证，核对版本与更新记录，再选择 GitHub 或社区分发渠道。
+
+## 验证范围
+
+离线测试可以检查 Lua 语法、模拟 API 下的命令和布局逻辑，以及发行包结构；这些结果不能替代游戏客户端内的加载与战斗验证。
+
+Lua 行为测试使用 Lua 5.1，运行方式：
+
+```powershell
+python -m pip install -r requirements-dev.txt
+python tests/run_tests.py
+```
+
+也可将依赖安装到仓库内隔离目录：`python -m pip install --target .test-deps -r requirements-dev.txt`。测试运行器会自动识别该目录。源码仓库的 `validation/TESTING.md` 包含详细验证记录，发行 ZIP 不包含开发测试文件。
+
+交付工具的标准库测试命令如下。测试仅创建临时的虚构仓库与 `Interface/AddOns`，不使用真实游戏目录：
+
+```powershell
+python tests/test_delivery.py
+```
+
+建议每次发布前在对应客户端确认：
+
+- 单人、小队与团队增减成员时，名单和列数正确；离线、无目标与更换目标时显示合理。
+- 战斗内外、切换地图后没有 Lua 错误，受限制的信息能按客户端允许的方式显示。
+- 拖动、锁定、缩放、隐藏、预览及设置窗口正常；`/reload` 后已保存设置仍然有效。
+- 40 人团队布局可读，窗口处于屏幕范围内。
+- 安装报告中 `other_addons_unchanged` 为 `true`，并保留本次更新前的备份。
+
+## 许可证
+
+采用 [MIT License](LICENSE)。版权所有 © 2026 PartyTargetWatch contributors。

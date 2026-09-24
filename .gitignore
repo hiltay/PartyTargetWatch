@@ -1,0 +1,6 @@
+.test-deps/
+__pycache__/
+*.pyc
+dist/
+local-backups/
+validation/local-*.json
