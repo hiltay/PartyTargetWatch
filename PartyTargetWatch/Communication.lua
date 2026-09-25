@@ -1,18 +1,18 @@
--- Public group chat is sent only by Announce, called from a user action.
+-- Public group chat is received only, for configured focus declarations.
 -- Optional focus sharing sends public snapshots, never secret values or GUIDs.
 local addonName, ns = ...
 local Communication = {}
 ns.Communication = Communication
 
 local PREFIX, MAX_NAME, MAX_PACKET = "PTWFocus1", 96, 112
-local SEND_INTERVAL, HEARTBEAT, TTL, CHAT_INTERVAL = 1, 4, 12, 3
+local SEND_INTERVAL, HEARTBEAT, TTL = 1, 4, 12
 local DECLARATION_TTL = 300
-local db, notify, onChanged, eventFrame, prefixReady
+local db, onChanged, eventFrame, prefixReady
 local byUnit, members, received = {}, {}, {}
 local declarations = {}
 local rosterUnits = { "player" }
 local ownID, rosterSignature
-local nextSend, nextChat, nextPoll, lastSent = 0, 0, 0, -100
+local nextSend, nextPoll, lastSent = 0, 0, -100
 local stateDirty, queryPending, disablePending = false, false, false
 local restrictionPending = false
 local lastOwnPacket, lastRestriction
@@ -103,12 +103,12 @@ end
 local function ReadUnit(unit)
     local ok, exists = pcall(UnitExists, unit)
     if not ok then return { state = "unavailable" } end
-    if Secret(exists) then return { state = "restricted", reason = "unit_exists_secret" } end
+    if Secret(exists) then return { state = "restricted" } end
     if type(exists) ~= "boolean" then return { state = "unavailable" } end
     if not exists then return { state = "none" } end
     local nameOK, name = pcall(UnitName, unit)
     if not nameOK then return { state = "unavailable" } end
-    if Secret(name) then return { state = "restricted", reason = "unit_name_secret" } end
+    if Secret(name) then return { state = "restricted" } end
     name = CleanName(name)
     if not name then return { state = "unavailable" } end
     local marker
@@ -416,8 +416,8 @@ local function Receive(prefix, message, channel, sender)
     Changed()
 end
 
-function Communication.Init(settings, report, changed)
-    db, notify, onChanged = settings, report, changed
+function Communication.Init(settings, changed)
+    db, onChanged = settings, changed
     db.shareFocus = db.shareFocus == true
     db.acceptFocusCalls = db.acceptFocusCalls == true
     local formats, templates = CompileFormats(db.declarationFormats)
@@ -514,57 +514,4 @@ function Communication.GetFocus(unit)
         end
     end
     return info
-end
-
-local messages = {
-    solo = "未组队，无法通报。", throttle = "通报过于频繁，请稍后再试。",
-    chat_locked = "当前聊天受游戏限制，无法通报；脱战不一定解除场景内的聊天限制。",
-    target_restricted = "目标信息受保护；即使界面能显示名称，也不能读取或拼接为聊天文字。",
-    owner_restricted = "成员信息受保护，无法拼接成员名称进行通报。",
-    unavailable = "当前目标信息不可用，无法通报。",
-    none = "当前没有可通报的目标。", failed = "通报发送失败；请检查聊天权限和游戏限制。",
-}
-
-function Communication.GetAnnouncementStatus()
-    local target, owner = ReadUnit("target"), ReadUnit("player")
-    -- Report only public classifications. False secret flags mean no secret
-    -- was observed; a restricted UnitExists prevents querying the name.
-    return {
-        channel = Channel(), chatLocked = Lockdown(),
-        targetState = target.state, ownerState = owner.state,
-        targetExistsSecret = target.reason == "unit_exists_secret",
-        targetNameSecret = target.reason == "unit_name_secret",
-        ownerExistsSecret = owner.reason == "unit_exists_secret",
-        ownerNameSecret = owner.reason == "unit_name_secret",
-    }
-end
-
-function Communication.Announce(unit)
-    local function Fail(reason)
-        if notify then notify(messages[reason] or messages.failed) end
-        return false, reason
-    end
-    local channel = Channel()
-    if not channel then return Fail("solo") end
-    if Lockdown() then return Fail("chat_locked") end
-    if Now() < nextChat then return Fail("throttle") end
-    if unit == nil or unit == "target" then unit = "player" end
-    if type(unit) ~= "string" or (unit ~= "player" and not byUnit[unit]) then return Fail("unavailable") end
-    if PublicFlag(UnitIsConnected, unit) == false then return Fail("unavailable") end
-    local target = ReadUnit(unit == "player" and "target" or unit .. "target")
-    if target.state == "restricted" then return Fail("target_restricted") end
-    if target.state ~= "ok" then return Fail(target.state) end
-    local owner = ReadUnit(unit)
-    if owner.state == "restricted" then return Fail("owner_restricted") end
-    if owner.state ~= "ok" then return Fail(owner.state) end
-    local marker = target.marker and ("{rt" .. target.marker .. "} ") or ""
-    local text = "[PTW] 请集火：" .. marker .. target.name .. "（" .. owner.name .. "的目标）"
-    if #text > 255 then return Fail("unavailable") end
-    local send = C_ChatInfo and C_ChatInfo.SendChatMessage or SendChatMessage
-    if type(send) ~= "function" then return Fail("failed") end
-    -- This call is synchronous with the click/binding; it is never queued.
-    nextChat = Now() + CHAT_INTERVAL
-    local ok = pcall(send, text, channel)
-    if not ok then return Fail("failed") end
-    return true
 end

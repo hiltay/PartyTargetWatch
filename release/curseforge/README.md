@@ -1,6 +1,6 @@
 # CurseForge 发布资料
 
-这些文件用于准备 PartyTargetWatch 0.3.0 的 CurseForge 项目页与版本说明。
+这些文件用于准备 PartyTargetWatch 0.3.1 的 CurseForge 项目页与版本说明。
 
 **当前状态：资料已准备，尚未提交到 CurseForge；没有已发布或已审核通过的项目链接。** 本目录不属于插件运行文件，也不进入现有发行 ZIP。
 
@@ -10,7 +10,7 @@
 | --- | --- |
 | `summary.txt` | 英文一句话简介 |
 | `description.md` | 项目详细说明；英文在前，简体中文在后 |
-| `changelog.md` | 0.3.0 更新说明；英文在前，简体中文在后；保留 0.2.0 历史 |
+| `changelog.md` | 0.3.1 更新说明；英文在前，简体中文在后；保留 0.3.0 与 0.2.0 历史 |
 | `metadata.json` | 填写项目及版本字段时使用的事实清单 |
 | `icon.png` | 主上传图标，精确 400×400 PNG |
 | `icon-512.png` | 保留的 512×512 PNG 图标版本 |
@@ -23,8 +23,8 @@
 1. 登录 [CurseForge 作者后台](https://authors.curseforge.com/)，创建 World of Warcraft 插件项目，名称填写 `PartyTargetWatch`。
 2. 将 `summary.txt` 填入简介，将 `description.md` 填入详细说明。确认预览中英文位于中文之前，段落、命令和链接显示正常。
 3. 上传 `icon.png` 作为项目图标，许可证选择 MIT；源码链接使用 `https://github.com/hiltay/PartyTargetWatch`，问题反馈链接使用 `https://github.com/hiltay/PartyTargetWatch/issues`。其他必填字段按当前后台要求填写。
-4. 上传相对本目录的 `../../dist/PartyTargetWatch-0.3.0.zip` 作为版本文件，选择 Retail、游戏版本 `12.1.0`，版本类型选择 **Beta**，更新说明使用 `changelog.md`。
-5. 提交前核对预览与字段：游戏内 UI 为简体中文；0.3.0 有 69 个 Lua mock 通过（37 UI、32 通信），交付测试 7 通过、1 因 Windows 符号链接权限跳过。新增功能尚未实机验证，安装文件更新或历史版本观察不代表本版通过；追随者通报限制来源仍待本地诊断。
+4. 上传相对本目录的 `../../dist/PartyTargetWatch-0.3.1.zip` 作为版本文件，选择 Retail、游戏版本 `12.1.0`，版本类型选择 **Beta**，更新说明使用 `changelog.md`。
+5. 提交前核对预览与字段：游戏内 UI 为简体中文；0.3.1 有 64 个 Lua mock 通过（36 UI、28 通信），交付测试 7 通过、1 因 Windows 符号链接权限跳过。主动目标通报及相关绑定已经移除，ZIP 应包含 7 个文件且没有 `Bindings.xml`。本版尚未实机验收，安装文件更新或历史版本观察不代表本版通过。
 6. 如表单要求接受作者条款，请由账号持有人自行审阅后决定是否同意。
 7. 提交后以后台显示的实际状态为准，记录项目链接与审核结果；若显示“待审核”，只记录已提交待审核，不标记为已公开发布。
 

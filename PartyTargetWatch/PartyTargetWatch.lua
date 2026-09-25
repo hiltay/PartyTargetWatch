@@ -158,27 +158,6 @@ function app.RefreshTargets()
         end
     else for i, unit in ipairs(app.units) do UpdateRow(app.rows[i], unit) end end
 end
-function app.Announce(unit)
-    if app.preview then app.Message("示例预览不能通报；请先结束预览。") return end
-    ns.Communication.Announce(unit or "player")
-end
-function app.ShowAnnouncementStatus()
-    local status = ns.Communication.GetAnnouncementStatus()
-    local channelNames = { PARTY = "小队", RAID = "团队", INSTANCE_CHAT = "副本队伍" }
-    local function StateText(state, existsSecret, nameSecret)
-        if existsSecret then return "存在性受限" end
-        if nameSecret then return "名称受限" end
-        if state == "ok" then return "可读" end
-        return ({ none = "无目标", restricted = "受限", unavailable = "不可用" })[state] or "未知"
-    end
-    app.Message("通报诊断：频道=" .. (channelNames[status.channel] or "未组队")
-        .. "；聊天锁定=" .. (status.chatLocked and "是" or "否")
-        .. "；当前目标=" .. StateText(status.targetState, status.targetExistsSecret, status.targetNameSecret)
-        .. "；自身名称=" .. StateText(status.ownerState, status.ownerExistsSecret, status.ownerNameSecret))
-end
-function PartyTargetWatch_AnnounceTarget() if initialized then app.Announce("player") end end
-BINDING_HEADER_PARTYTARGETWATCH = "PartyTargetWatch 队友目标"
-BINDING_NAME_PARTYTARGETWATCH_ANNOUNCE = "向队伍通报我的当前目标"
 local function NewMarker(parent, x)
     local icon = parent:CreateTexture(nil, "ARTWORK")
     icon:SetSize(18, 18) icon:SetPoint("LEFT", x, 0)
@@ -186,11 +165,11 @@ local function NewMarker(parent, x)
     return icon
 end
 local function CreateRow(index)
-    local row = CreateFrame("Button", nil, frame)
+    local row = CreateFrame("Frame", nil, frame)
+    row:EnableMouse(true)
     row.background = row:CreateTexture(nil, "BACKGROUND")
     row.background:SetAllPoints()
     row.background:SetColorTexture(1, 1, 1, index % 2 == 0 and 0.05 * db.backgroundAlpha or 0)
-    row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row.member = app.NewText(row, "GameFontHighlight")
     row.member:SetPoint("LEFT", 6, 0) row.member:SetWidth(126)
     row.arrow = app.NewText(row, "GameFontNormal")
@@ -201,11 +180,10 @@ local function CreateRow(index)
     row.focusMarker = NewMarker(row, 422)
     row.focus = app.NewText(row, "GameFontHighlight")
     row.focus:SetPoint("LEFT", 445, 0) row.focus:SetWidth(178)
-    row:SetScript("OnClick", function() if row.unit then app.Announce(row.unit) end end)
     row:SetScript("OnEnter", function()
         if not GameTooltip then return end
         GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-        GameTooltip:SetText("点击通报这位队友的当前目标")
+        GameTooltip:SetText("队友目标与焦点声明")
         GameTooltip:AddLine("黄色“约定”来自聊天声明，不代表实际焦点。", 1, 1, 1, true)
         GameTooltip:Show()
     end)
@@ -238,7 +216,7 @@ function app.RebuildRoster()
                 app.NewText(frame, "GameFontDisableSmall"), app.NewText(frame, "GameFontDisableSmall") }
             headers[column] = header
             header[1]:SetText("队友")
-            header[2]:SetText("当前目标（点击行通报）")
+            header[2]:SetText("当前目标")
             header[3]:SetText("焦点 / 约定")
         end
         for index, x in ipairs({ 16, 165, 432 }) do
@@ -253,17 +231,16 @@ function app.RebuildRoster()
         local column, rowIndex = math.floor((i - 1) / perColumn), (i - 1) % perColumn
         row:SetSize(width - 20, ROW_HEIGHT) row:ClearAllPoints()
         row:SetPoint("TOPLEFT", 10 + column * width, -TOP - rowIndex * ROW_HEIGHT)
-        if app.preview then row.unit = nil else row.unit = units[i] end
         if db.showFocus then row.focus:Show() else row.focus:Hide() row.focusMarker:Hide() end
         row:Show()
     end
-    for i = count + 1, #app.rows do app.rows[i].unit = nil app.rows[i]:Hide() end
+    for i = count + 1, #app.rows do app.rows[i]:Hide() end
     title:SetText(app.preview and "队友目标 · 示例预览" or "队友目标")
     testButton:SetText(app.preview and "结束预览" or "预览")
     lockButton:SetText(db.locked and "解锁" or "锁定")
     if app.preview then footer:SetText("示例数据 · 点击“结束预览”恢复实时监控")
     elseif not IsInGroup() then footer:SetText("未组队 · 当前显示自己的目标")
-    else footer:SetText(#units .. " 名成员 · 点击行通报目标；黄色约定不代表实际焦点") end
+    else footer:SetText(#units .. " 名成员 · 黄色约定不代表实际焦点") end
     app.ApplyVisibility() app.RefreshTargets() app.SyncSettings()
 end
 function app.TogglePreview() app.preview = not app.preview db.hidden = false app.RebuildRoster() end
@@ -305,10 +282,9 @@ local function CreateUI()
     title:SetPoint("LEFT", 12, 0) title:SetWidth(390) title:SetTextColor(0.4, 0.9, 0.83)
     footer = app.NewText(frame, "GameFontDisableSmall")
     footer:SetPoint("BOTTOMLEFT", 14, 9) footer:SetPoint("BOTTOMRIGHT", -12, 9)
-    NewButton("通报目标", 84, 10, function() app.Announce("player") end)
-    NewButton("设置", 58, 102, app.ShowSettings)
-    testButton = NewButton("预览", 84, 168, app.TogglePreview)
-    lockButton = NewButton("锁定", 58, 260, function()
+    NewButton("设置", 58, 10, app.ShowSettings)
+    testButton = NewButton("预览", 84, 76, app.TogglePreview)
+    lockButton = NewButton("锁定", 58, 168, function()
         app.SavePosition() db.locked = not db.locked app.RebuildRoster()
     end)
 end
@@ -318,8 +294,6 @@ local function HandleCommand(message)
     command = command:lower()
     if command == "settings" or command == "config" then app.ShowSettings() return
     elseif command == "formats" then app.ShowFormats() return
-    elseif command == "status" then app.ShowAnnouncementStatus() return
-    elseif command == "announce" then app.Announce("player") return
     elseif command == "hide" then db.hidden = true
     elseif command == "show" or command == "" then db.hidden = false app.preview = false
     elseif command == "lock" or command == "unlock" then app.SavePosition() db.locked = command == "lock" db.hidden = false
@@ -330,7 +304,7 @@ local function HandleCommand(message)
         if not app.ValidNumber(scale, 0.6, 2) then app.Message("缩放范围：/ptw scale 0.6 到 2") return end
         db.scale = scale app.RestorePosition()
     else
-        app.Message("/ptw settings 设置；formats 通报格式；status 通报诊断；announce 通报当前目标；show 显示；hide 隐藏；unlock 解锁拖动；lock 锁定；test 示例预览；reset 重置；scale 1 缩放。")
+        app.Message("/ptw settings 设置；formats 通报格式；show 显示；hide 隐藏；unlock 解锁拖动；lock 锁定；test 示例预览；reset 重置；scale 1 缩放。")
         return
     end
     app.RebuildRoster()
@@ -342,7 +316,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         if arg1 ~= addonName then return end
         InitializeDB() CreateUI() app.RestorePosition()
         initialized = true
-        ns.Communication.Init(db, app.Message, function() end)
+        ns.Communication.Init(db, function() end)
         self:UnregisterEvent("ADDON_LOADED")
         for _, name in ipairs({ "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "UNIT_TARGET",
             "PLAYER_TARGET_CHANGED", "UNIT_NAME_UPDATE", "UNIT_CONNECTION", "ZONE_CHANGED_NEW_AREA",

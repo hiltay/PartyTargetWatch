@@ -1,3 +1,21 @@
+## 0.3.1 — Beta
+
+- Removed outgoing target calls and their button, member-row click action, commands, key binding and dedicated diagnostics. Protected names can be unavailable for composing chat even outside combat.
+- Retained selected-target and raid-marker monitoring, customizable incoming chat declarations, background opacity and default-off public focus sharing. Declarations remain assignments rather than verified current focus.
+- Removed `Bindings.xml` from the seven-file release. The local installer verifies a full backup before removing that retired file; other addons and SavedVariables are preserved.
+
+64 Lua mock scenarios passed (36 UI, 28 communication); delivery checks: 7 passed, 1 skipped for Windows symbolic-link privilege. This release has not been validated in game. CurseForge materials remain prepared, not submitted or published.
+
+## 0.3.1 — 测试版
+
+- 删除主动目标通报及其按钮、成员行点击、命令、快捷键与专用诊断。目标名称受保护时，脱战也不保证可以拼接为聊天文字。
+- 保留目标与标记监控、自定义聊天声明模板、背景不透明度和默认关闭的公开焦点共享。声明仍只是约定，不代表已验证的当前真实焦点。
+- 发行包共 7 个文件，不再包含 `Bindings.xml`；本地安装器完整校验备份后移除该废弃文件，保留其他插件和 SavedVariables。
+
+64 个 Lua mock 通过（36 UI、28 通信）；交付检查 7 通过、1 因 Windows 符号链接权限跳过。本版尚未实机验收。CurseForge 资料仍为 prepared，尚未提交或发布。
+
+---
+
 ## 0.3.0 — Beta
 
 - Added a multiline declaration-template editor through **通报格式…** in settings or `/ptw formats`, with local draft sample tests that send no messages. Saving applies templates, clears old declarations and persists configuration.

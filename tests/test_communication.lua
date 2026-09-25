@@ -9,7 +9,7 @@ local function boot(enabled, grouped, saved)
         names = { player = "Alice", target = "Training Dummy", party1 = "Bob", party1target = "Other Dummy" },
         realms = { player = "Test Realm", party1 = "Test Realm" },
         marker = {}, secrets = {}, exists = {}, errors = {}, offline = {},
-        addon = {}, chat = {}, notices = {}, changed = 0, registered = {},
+        addon = {}, chat = {}, changed = 0, registered = {},
         lockdown = false, outgoingRestricted = false, sendResult = 0, registerResult = 0 }
     local env = setmetatable({}, { __index = _G })
     env.C_ChatInfo = {}
@@ -45,11 +45,11 @@ local function boot(enabled, grouped, saved)
         state.addon[#state.addon + 1] = { prefix = prefix, message = message, channel = channel, time = state.time }
         return state.sendResult
     end
-    env.C_ChatInfo.SendChatMessage = function(message, channel)
-        assert(type(message) == "string")
-        if state.chatError then error("mock chat blocked") end
-        state.chat[#state.chat + 1] = { message = message, channel = channel, time = state.time }
+    env.C_ChatInfo.SendChatMessage = function(...)
+        state.chat[#state.chat + 1] = { ... }
+        error("ordinary chat sending has been removed")
     end
+    env.SendChatMessage = env.C_ChatInfo.SendChatMessage
     local frame = { scripts = {}, events = {} }
     function frame:RegisterEvent(event) self.events[event] = true end
     function frame:SetScript(event, fn) self.scripts[event] = fn end
@@ -60,8 +60,7 @@ local function boot(enabled, grouped, saved)
     chunk("PartyTargetWatch", namespace)
     local comm = namespace.Communication
     local settings = saved or { shareFocus = enabled == true }
-    comm.Init(settings, function(message) state.notices[#state.notices + 1] = message end,
-        function() state.changed = state.changed + 1 end)
+    comm.Init(settings, function() state.changed = state.changed + 1 end)
     comm.RebuildRoster({ "player", "party1" })
     local app = { state = state, env = env, comm = comm, db = settings }
     function app:advance(seconds)
@@ -100,68 +99,6 @@ tests["sharing defaults off; own focus reads locally without sends"] = function(
     a:advance(20)
     equal(#a.state.addon, 0)
     equal(#a.state.chat, 0)
-    local ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "solo")
-    equal(#a.state.chat, 0)
-end
-
-tests["announcement channels and click-only throttle"] = function()
-    local a = boot(false, true)
-    a.state.marker.target = 8
-    equal(a.comm.Announce("player"), true)
-    equal(a.state.chat[1].channel, "PARTY")
-    assert(a.state.chat[1].message:find("{rt8}", 1, true))
-    local ok, reason = a.comm.Announce("party1")
-    equal(ok, false); equal(reason, "throttle")
-    a:advance(3)
-    a.state.raid = true
-    equal(a.comm.Announce("party1"), true)
-    equal(a.state.chat[2].channel, "RAID")
-    assert(a.state.chat[2].message:find("Bob", 1, true))
-    assert(a.state.chat[2].message:find("Other Dummy", 1, true))
-    a:advance(3); a.state.instance = true
-    equal(a.comm.Announce("target"), true)
-    equal(a.state.chat[3].channel, "INSTANCE_CHAT")
-    a:advance(20)
-    equal(#a.state.chat, 3, "updates never queue public chat")
-    equal(#a.state.addon, 0, "sharing remains off")
-end
-
-tests["announcement sanitizes names and rejects secret or missing data"] = function()
-    local a = boot(false, true)
-    a.state.names.target = "|cffff0000|Hspell:123|hBad\nName|h|r {rt8}"
-    equal(a.comm.Announce("player"), true)
-    local message = a.state.chat[1].message
-    assert(not message:find("|", 1, true) and not message:find("\n", 1, true))
-    assert(not message:find("{", 1, true))
-    a:advance(3); a.state.names.target = a:secret()
-    local ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "target_restricted"); equal(#a.state.chat, 1)
-    a.state.names.target = nil
-    ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "none")
-    a.state.names.target = "Dummy"; a.state.exists.target = a:secret()
-    ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "target_restricted")
-    a.state.exists.target = nil; a.state.names.player = a:secret()
-    ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "owner_restricted")
-    equal(#a.state.chat, 1)
-end
-
-tests["secret marker omitted and announcement failures are not retried"] = function()
-    local a = boot(false, true)
-    a.state.marker.target = a:secret()
-    equal(a.comm.Announce("player"), true)
-    assert(not a.state.chat[1].message:find("{rt", 1, true))
-    a:advance(3); a.state.chatError = true
-    local ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "failed")
-    a.state.chatError = false; a:advance(20)
-    equal(#a.state.chat, 1)
-    a.state.lockdown = true
-    ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "chat_locked")
 end
 
 tests["sharing handshakes, sends bounded snapshots and heartbeats"] = function()
@@ -179,61 +116,6 @@ tests["sharing handshakes, sends bounded snapshots and heartbeats"] = function()
     a:receive("1|Q"); a:advance(1)
     equal(#a.state.addon, 4)
     equal(a.state.addon[4].message, "1|O|3|Focus Dummy")
-    equal(#a.state.chat, 0)
-end
-
-tests["announcement status identifies secret sources without returning names or secret values"] = function()
-    local a = boot(false, true)
-    local allowed = { channel = true, chatLocked = true, targetState = true, ownerState = true,
-        targetExistsSecret = true, targetNameSecret = true, ownerExistsSecret = true, ownerNameSecret = true }
-    local function CheckPublic(status)
-        for key, value in pairs(status) do
-            assert(allowed[key], "diagnostics contain only approved classifications")
-            assert(not a.state.secrets[value], "diagnostics never expose secret values")
-            assert(type(value) == "boolean" or type(value) == "string")
-            assert(value ~= "Alice" and value ~= "Training Dummy", "diagnostics never contain real names")
-        end
-    end
-    local status = a.comm.GetAnnouncementStatus()
-    CheckPublic(status)
-    equal(status.channel, "PARTY"); equal(status.chatLocked, false)
-    equal(status.targetState, "ok"); equal(status.targetNameSecret, false)
-    a.state.names.target = a:secret()
-    status = a.comm.GetAnnouncementStatus(); CheckPublic(status)
-    equal(status.targetState, "restricted"); equal(status.targetNameSecret, true)
-    equal(status.targetExistsSecret, false)
-    a.state.exists.target = a:secret(); a.state.errors.target = "name"
-    status = a.comm.GetAnnouncementStatus(); CheckPublic(status)
-    equal(status.targetExistsSecret, true); equal(status.targetNameSecret, false)
-    a.state.names.player = a:secret()
-    status = a.comm.GetAnnouncementStatus(); CheckPublic(status)
-    equal(status.ownerNameSecret, true); equal(status.ownerState, "restricted")
-    a.state.exists.player = a:secret()
-    status = a.comm.GetAnnouncementStatus(); CheckPublic(status)
-    equal(status.ownerExistsSecret, true); equal(status.ownerNameSecret, false)
-    a.state.lockdown = true
-    status = a.comm.GetAnnouncementStatus(); CheckPublic(status)
-    equal(status.chatLocked, true)
-    a.state.group = false
-    equal(a.comm.GetAnnouncementStatus().channel, nil)
-    equal(#a.state.chat, 0); equal(#a.state.addon, 0)
-end
-
-tests["announcement restrictions remain distinct from combat state and explain the blocked data"] = function()
-    local a = boot(false, true)
-    a.env.InCombatLockdown = function() return false end
-    a.state.lockdown = true
-    local ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "chat_locked")
-    assert(a.state.notices[#a.state.notices]:find("聊天", 1, true))
-    a.state.lockdown = false; a.state.names.target = a:secret()
-    ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "target_restricted")
-    assert(a.state.notices[#a.state.notices]:find("界面能显示", 1, true))
-    a.state.names.target = "Training Dummy"; a.state.exists.player = a:secret()
-    ok, reason = a.comm.Announce("player")
-    equal(ok, false); equal(reason, "owner_restricted")
-    assert(a.state.notices[#a.state.notices]:find("成员", 1, true))
     equal(#a.state.chat, 0)
 end
 
@@ -637,25 +519,39 @@ tests["custom receiver accepts public messages up to 255 bytes and preserves mem
     equal(a.comm.GetFocus("party1").state, "disabled")
 end
 
-tests["only chat restriction activation creates a pending announcement lock"] = function()
+tests["only chat restriction activation blocks focus sharing"] = function()
     local a = boot(true, true)
     a:receive("1|O|0|Public Focus")
     for _, restriction in ipairs({ 0, 1, 2, 3, 4 }) do
         a:event("ADDON_RESTRICTION_STATE_CHANGED", restriction, 2)
-        equal(a.comm.GetAnnouncementStatus().chatLocked, false)
         equal(a.comm.GetFocus("party1").name, "Public Focus")
     end
     for _, state in ipairs({ 1, 2 }) do
         a:event("ADDON_RESTRICTION_STATE_CHANGED", 5, state)
-        equal(a.comm.GetAnnouncementStatus().chatLocked, true)
         equal(a.comm.GetFocus("party1").state, "restricted")
         a:event("ADDON_RESTRICTION_STATE_CHANGED", 5, 0)
-        equal(a.comm.GetAnnouncementStatus().chatLocked, false)
+        equal(a.comm.GetFocus("party1").state, "pending")
     end
     a:event("ADDON_RESTRICTION_STATE_CHANGED", a:secret(), 2)
     a:event("ADDON_RESTRICTION_STATE_CHANGED", 5, a:secret())
-    equal(a.comm.GetAnnouncementStatus().chatLocked, false)
+    equal(a.comm.GetFocus("party1").state, "pending")
     equal(#a.state.chat, 0)
+end
+
+tests["target monitoring and chat declarations expose no outgoing announcement API"] = function()
+    local a = boot(true, true)
+    equal(a.comm.Announce, nil)
+    equal(a.comm.GetAnnouncementStatus, nil)
+    a.comm.SetAcceptCalls(true)
+    equal(a.comm.SetDeclarationFormats("focus={rt%mark}"), true)
+    a:event("CHAT_MSG_PARTY", "focus={rt8}", "Bob-TestRealm")
+    equal(a.comm.GetFocus("party1").state, "declared")
+    equal(a.comm.GetFocus("party1").marker, 8)
+    a.state.names.focus = "Public Focus"
+    a:event("PLAYER_FOCUS_CHANGED"); a:advance(1)
+    equal(a.comm.GetFocus("player").name, "Public Focus")
+    assert(#a.state.addon > 0, "addon focus sharing must remain available")
+    equal(#a.state.chat, 0, "receiving declarations and sharing must not send ordinary chat")
 end
 
 local names = {}

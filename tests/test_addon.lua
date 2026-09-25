@@ -8,8 +8,8 @@ local function boot(saved)
     local objects, globals = {}, {}
     local state = { group = false, raid = false, count = 0, instanceType = "none", resting = false,
         names = { player = "自己", target = "训练假人" }, offline = {}, errors = {}, secrets = {},
-        markers = {}, focuses = {}, announcements = {}, nameCalls = 0, now = 0, secretTypes = {}, existsResults = {},
-        rosterRebuilds = 0, enabledCalls = {}, acceptCalls = {}, transmitted = {}, messages = {}, statusCalls = 0,
+        markers = {}, focuses = {}, nameCalls = 0, now = 0, secretTypes = {}, existsResults = {},
+        rosterRebuilds = 0, enabledCalls = {}, acceptCalls = {}, transmitted = {}, messages = {},
         formatSaveCalls = {}, formatTestCalls = {}, formatResetCalls = 0, formatClearCalls = 0, scrollingCalls = {},
         defaultFormats = "我打断%mark\n我负责%mark" }
     local methods = {}
@@ -167,6 +167,7 @@ local function boot(saved)
     env.SaveBindings = function() error("must not save keybindings") end
     env.SendChatMessage = function(...) state.transmitted[#state.transmitted + 1] = { ... } end
     env.C_ChatInfo = { RegisterAddonMessagePrefix = function() return true end,
+        SendChatMessage = env.SendChatMessage,
         SendAddonMessage = function(...) state.transmitted[#state.transmitted + 1] = { ... } end }
     for _, name in ipairs({ "ScrollingEdit_OnLoad", "ScrollingEdit_OnCursorChanged", "ScrollingEdit_OnTextChanged", "ScrollingEdit_OnUpdate" }) do
         local handlerName = name
@@ -176,7 +177,7 @@ local function boot(saved)
     end
     local namespace = {}
     local communication = {
-        Init = function(db, notify, onChanged) state.commDB, state.notify, state.onChanged = db, notify, onChanged end,
+        Init = function(db, onChanged) state.commDB, state.onChanged = db, onChanged end,
         RebuildRoster = function() state.rosterRebuilds = state.rosterRebuilds + 1 end,
         GetFocus = function(unit) return state.focuses[unit] or { state = "pending" } end,
         SetEnabled = function(value)
@@ -190,11 +191,6 @@ local function boot(saved)
             if state.commDB.acceptFocusCalls == value then return end
             state.acceptCalls[#state.acceptCalls + 1] = value
             state.commDB.acceptFocusCalls = value
-        end,
-        Announce = function(unit) state.announcements[#state.announcements + 1] = unit; return true end,
-        GetAnnouncementStatus = function()
-            state.statusCalls = state.statusCalls + 1
-            return state.announcementStatus or { chatLocked = false, targetState = "none", ownerState = "ok" }
         end,
         GetDefaultDeclarationFormats = function() return state.defaultFormats end,
         GetDeclarationFormats = function() return state.commDB.declarationFormats or state.defaultFormats end,
@@ -570,25 +566,6 @@ tests["party focus comes from communication for the matching member token"] = fu
     assert(declaration:find("约定", 1, true) or declaration:find("声明", 1, true),
         "declaration is not distinguished from a real focus")
 end
-tests["announcements require explicit button slash or key actions"] = function()
-    local a = boot(); a:load()
-    for _, event in ipairs({ "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "PLAYER_TARGET_CHANGED", "UNIT_TARGET", "RAID_TARGET_UPDATE" }) do
-        a:event(event, "player"); a:tick(0.21)
-    end
-    equal(#a.state.announcements, 0); equal(#a.state.transmitted, 0)
-    a:click("通报目标"); equal(#a.state.announcements, 1)
-    a:command("announce"); equal(#a.state.announcements, 2)
-    a.env.PartyTargetWatch_AnnounceTarget(); equal(#a.state.announcements, 3)
-    for _, unit in ipairs(a.state.announcements) do equal(unit, "player") end
-    a.state.group, a.state.count, a.state.names.party1 = true, 1, "点击队员"
-    a:event("GROUP_ROSTER_UPDATE")
-    local row = a:rows()[2]; row.scripts.OnClick(row, "LeftButton")
-    equal(#a.state.announcements, 4); equal(a.state.announcements[4], "party1")
-    a:command("test")
-    a:click("通报目标"); a:command("announce"); a.env.PartyTargetWatch_AnnounceTarget()
-    local demoRow = a:rows()[1]; demoRow.scripts.OnClick(demoRow, "LeftButton")
-    equal(#a.state.announcements, 4, "preview must never announce fabricated targets")
-end
 tests["format editor opens from settings or slash without saving drafts"] = function()
     local original = "第一路我打断%mark\n第二路我打断%mark"
     local a = boot({ declarationFormats = original }); a:load(); a:command("hide"); a:command("settings")
@@ -645,7 +622,7 @@ tests["twenty format lines save atomically persist and clear old declarations"] 
     equal(#a.state.formatSaveCalls, 1); equal(a.state.formatSaveCalls[1], formats)
     equal(a.env.PartyTargetWatchDB.declarationFormats, formats)
     equal(a.state.focuses.party1, nil); equal(a.state.formatClearCalls, 1)
-    equal(#a.state.announcements, 0); equal(#a.state.transmitted, 0)
+    equal(#a.state.transmitted, 0)
     local b = boot(a.env.PartyTargetWatchDB); b:load(); b:command("formats")
     equal(b.globals.PartyTargetWatchFormatsInput:GetText(), formats)
 end
@@ -664,7 +641,7 @@ tests["format matching previews unsaved drafts and shows marker line or failure"
     assert(a.globals.PartyTargetWatchFormatSettings.status:GetText():find("没有匹配的格式。", 1, true),
         "failed test must replace the prior successful status")
     equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
-    equal(a.state.formatClearCalls, 0); equal(#a.state.announcements, 0); equal(#a.state.transmitted, 0)
+    equal(a.state.formatClearCalls, 0); equal(#a.state.transmitted, 0)
 end
 tests["restore built-in formats changes only draft until save"] = function()
     local original = "私人格式%mark"
@@ -779,37 +756,22 @@ tests["background alpha invalid values and global reset restore default"] = func
     equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0.88); equal(a.frame.backdropColor[4], 0.88)
     equal(a.globals.PartyTargetWatchBackgroundAlphaSlider:GetValue(), 0.88)
 end
-tests["status command distinguishes public restriction reasons without exposing names or changing settings"] = function()
-    local a = boot({ backgroundAlpha = 0.4, declarationFormats = "已有格式%mark", hidden = true })
-    a.state.names.player, a.state.names.target = "不应出现在诊断中的玩家名", "不应出现在诊断中的目标名"
-    a:load()
-    local snapshot, calls = {}, a.state.nameCalls
-    for key, value in pairs(a.env.PartyTargetWatchDB) do snapshot[key] = value end
-    local cases = {
-        { { channel = "PARTY", chatLocked = false, targetState = "restricted", ownerState = "ok", targetNameSecret = true },
-            { "频道=小队", "聊天锁定=否", "当前目标=名称受限", "自身名称=可读" } },
-        { { channel = "INSTANCE_CHAT", chatLocked = true, targetState = "ok", ownerState = "ok" },
-            { "频道=副本队伍", "聊天锁定=是", "当前目标=可读", "自身名称=可读" } },
-        { { channel = "RAID", chatLocked = false, targetState = "restricted", ownerState = "restricted",
-            targetExistsSecret = true, ownerNameSecret = true },
-            { "频道=团队", "聊天锁定=否", "当前目标=存在性受限", "自身名称=名称受限" } },
-        { { chatLocked = false, targetState = "none", ownerState = "restricted", ownerExistsSecret = true },
-            { "频道=未组队", "聊天锁定=否", "当前目标=无目标", "自身名称=存在性受限" } },
-    }
-    for index, case in ipairs(cases) do
-        a.state.announcementStatus = case[1]
-        local prior = #a.state.messages
-        a:command("status")
-        equal(a.state.statusCalls, index); equal(#a.state.messages, prior + 1, "diagnostics should print one local line")
-        local message = a.state.messages[#a.state.messages]
-        for _, expected in ipairs(case[2]) do assert(message:find(expected, 1, true), "missing diagnostic: " .. expected) end
-        assert(not message:find(a.state.names.player, 1, true) and not message:find(a.state.names.target, 1, true),
-            "diagnostics exposed a real unit name")
+tests["monitor has no announcement button row action or keybinding entry point"] = function()
+    local a = boot(); a:load()
+    a.state.group, a.state.count, a.state.names.party1 = true, 1, "Member"
+    a:event("GROUP_ROSTER_UPDATE")
+    equal(a.env.PartyTargetWatch_AnnounceTarget, nil)
+    equal(a.env.BINDING_NAME_PARTYTARGETWATCH_ANNOUNCE, nil)
+    equal(a.namespace.App.Announce, nil)
+    for _, row in ipairs(a:rows()) do
+        equal(row.scripts.OnClick, nil, "member row must not announce on click")
     end
-    for key, value in pairs(snapshot) do equal(a.env.PartyTargetWatchDB[key], value, "status mutated setting " .. key) end
-    for key, value in pairs(a.env.PartyTargetWatchDB) do equal(value, snapshot[key], "status added setting " .. key) end
-    equal(a.state.nameCalls, calls, "UI diagnostics should use only the public status structure")
-    equal(#a.state.transmitted, 0); equal(#a.state.announcements, 0); equal(a.frame:IsShown(), false)
+    local found = pcall(function() return a:button("通报目标") end)
+    equal(found, false, "removed announcement control is still present")
+    for _, command in ipairs({ "announce", "call", "status" }) do a:command(command) end
+    a:command("test")
+    for _, row in ipairs(a:rows()) do equal(row.scripts.OnClick, nil) end
+    equal(#a.state.transmitted, 0)
 end
 local count, names, failures = 0, {}, {}
 for name in pairs(tests) do names[#names + 1] = name end

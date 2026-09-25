@@ -15,6 +15,9 @@ import uuid
 
 from package import ADDON, REPO, regular_files, reject_links, release_payload
 
+# These files belonged to removed addon features and must not survive an upgrade.
+RETIRED_FILES = ("Bindings.xml",)
+
 
 def sha256(path: Path) -> str:
     digest = hashlib.sha256()
@@ -61,7 +64,8 @@ def install(addons: Path) -> None:
     reject_links(target)
     if target.exists():
         regular_files(target)
-    for relative in payload:
+    retired = [name for name in RETIRED_FILES if name not in payload]
+    for relative in (*payload, *retired):
         destination = target / relative
         reject_links(destination)
         if destination.exists() and not destination.is_file():
@@ -111,6 +115,16 @@ def install(addons: Path) -> None:
                 raise ValueError(f"Installed content verification failed: {relative}")
             installed[relative] = expected
         report["installed_files_sha256"] = installed
+        # Only remove explicitly retired files, after the old installation has
+        # been backed up and the new payload verified. Preserve other local files.
+        removed = []
+        for relative in retired:
+            destination = target / relative
+            reject_links(destination)
+            if destination.is_file():
+                destination.unlink()
+                removed.append(relative)
+        report["removed_obsolete_files"] = removed
     except (OSError, ValueError) as error:
         failure = error
         report["error"] = str(error)
