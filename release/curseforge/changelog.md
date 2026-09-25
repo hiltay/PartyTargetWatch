@@ -1,3 +1,25 @@
+## 0.4.0 — Beta
+
+- Added `%name` capture for incoming public chat. Name-only and name-plus-marker declarations display the declared name in yellow; marker-only templates remain supported. A declaration is a snapshot, not verified current focus.
+- Templates allow at most one `%name`, one `%mark` and two nonempty `%text` wildcards, with a name or marker required. Name-only templates need literal text, name/text wildcards cannot be adjacent, and cleaned names are limited to 96 bytes. Unexpanded `%f`/`%t`, secret messages and ambiguous captures are rejected.
+- Leading `{rtN}` tokens in captured names become marker icons instead of leftover `rtN` text; conflicts with explicit `%mark` reject the message. This uses public chat text, not protected unit markers.
+- Added the default `PTW焦点：%name` template while preserving saved user templates. **加入名称格式** appends it to the draft; **保存格式** applies it.
+- Documented a manually pressed native macro: `/stopmacro [@focus,noexists]` followed by `/p PTW焦点：%f`. No addon-driven normal-chat sending, target-call button or key binding was restored.
+
+76 Lua mock scenarios passed (39 UI, 37 communication); delivery: 7 passed, 1 skipped for Windows symbolic-link privilege. The user confirmed native `%f` expansion and initial addon name receipt/display. The subsequent leading-marker correction, complete two-line macro, cross-client delivery and combat/Mythic+ behavior remain unverified in game. CurseForge materials remain prepared, not submitted or published.
+
+## 0.4.0 — 测试版
+
+- 新增 `%name` 公开聊天名称捕获；名称声明及名称加标记声明显示黄色名称，只有标记的旧模板继续保留。声明是当时的记录，不验证当前真实焦点。
+- 每条模板最多一个 `%name`、一个 `%mark` 和两个非空 `%text`，至少包含名称或标记。只有名称的模板需有固定文字，名称/通配文字不可相邻，清理后名称最多 96 字节；拒绝未展开 `%f`/`%t`、受保护消息和歧义。
+- 名称前置 `{rtN}` 提取为标记图标，避免残留 `rtN` 文字；与显式 `%mark` 冲突时拒绝消息。只使用公开聊天文字，不读取受保护单位标记。
+- 新增默认 `PTW焦点：%name`，保留用户已保存模板。“加入名称格式”只追加到草稿，“保存格式”后才生效。
+- 提供玩家手动按下的原生宏：`/stopmacro [@focus,noexists]` 后接 `/p PTW焦点：%f`。不恢复插件主动普通聊天发送、通报按钮或快捷键。
+
+76 个 Lua mock 通过（39 UI、37 通信）；交付检查 7 通过、1 因 Windows 符号链接权限跳过。用户已确认原生 `%f` 展开及首轮插件接收/显示名称；前置标记修正、完整两行宏、跨客户端及战斗/大秘境效果仍待实机验证。CurseForge 资料为 prepared，尚未提交或发布。
+
+---
+
 ## 0.3.1 — Beta
 
 - Removed outgoing target calls and their button, member-row click action, commands, key binding and dedicated diagnostics. Protected names can be unavailable for composing chat even outside combat.

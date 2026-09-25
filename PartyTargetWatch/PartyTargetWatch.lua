@@ -115,7 +115,8 @@ local function UpdateFocus(row, unit)
     local focus = ns.Communication.GetFocus(unit)
     row.focus:SetTextColor(0.73, 0.82, 0.92)
     if focus.state == "declared" then
-        row.focus:SetText("约定：" .. (focus.name or "未指定"))
+        if focus.hasDeclaredName then row.focus:SetText(focus.name)
+        else row.focus:SetText("约定：" .. (focus.name or "未指定")) end
         row.focus:SetTextColor(1, 0.8, 0.35)
     elseif focus.name then row.focus:SetText(focus.name)
     else row.focus:SetText(focusLabels[focus.state] or "等待共享") end
@@ -184,7 +185,7 @@ local function CreateRow(index)
         if not GameTooltip then return end
         GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
         GameTooltip:SetText("队友目标与焦点声明")
-        GameTooltip:AddLine("黄色“约定”来自聊天声明，不代表实际焦点。", 1, 1, 1, true)
+        GameTooltip:AddLine("黄色名称或“约定”来自聊天声明，不代表已验证的实际焦点。", 1, 1, 1, true)
         GameTooltip:Show()
     end)
     row:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
@@ -240,7 +241,7 @@ function app.RebuildRoster()
     lockButton:SetText(db.locked and "解锁" or "锁定")
     if app.preview then footer:SetText("示例数据 · 点击“结束预览”恢复实时监控")
     elseif not IsInGroup() then footer:SetText("未组队 · 当前显示自己的目标")
-    else footer:SetText(#units .. " 名成员 · 黄色约定不代表实际焦点") end
+    else footer:SetText(#units .. " 名成员 · 黄色内容来自聊天声明，不代表实际焦点") end
     app.ApplyVisibility() app.RefreshTargets() app.SyncSettings()
 end
 function app.TogglePreview() app.preview = not app.preview db.hidden = false app.RebuildRoster() end

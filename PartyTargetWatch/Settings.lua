@@ -209,7 +209,7 @@ function ns.CreateFormatSettings(app)
     local close = CreateFrame("Button", nil, panel, "UIPanelCloseButton")
     close:SetPoint("TOPRIGHT", -4, -4)
     close:SetScript("OnClick", function() panel:Hide() end)
-    local help = Text("每行一个格式，最多 20 条；每条必须包含一个 %mark。\n{rt%mark} 匹配标记编号；%mark 也支持中文标记名或 {rtN}。\n%text 匹配非空可变内容（最多 2 处）；其他文字、空格需一致。", 22, -54, "GameFontDisableSmall")
+    local help = Text("每行一个格式，最多 20 条；%mark / %name 各最多 1 处，至少一种。\n%name 提取名称；%mark 支持标记名、编号或 {rtN}。\n%text 匹配非空文字（最多 2 处）；其他文字、空格需一致。\n名称通报示例：队友手动发送 /p PTW焦点：%f", 22, -54, "GameFontDisableSmall")
     help:SetWidth(578)
     help:SetHeight(60)
     help:SetWordWrap(true)
@@ -260,7 +260,7 @@ function ns.CreateFormatSettings(app)
     sample:SetMaxLetters(510)
     sample:SetMaxBytes(510)
     sample:SetAltArrowKeyMode(false)
-    sample:SetText("我的焦点打断是 {rt1}")
+    sample:SetText("PTW焦点：训练假人")
     sample:SetScript("OnEscapePressed", sample.ClearFocus)
     status = Text("", 22, -442, "GameFontHighlight")
     status:SetWidth(576)
@@ -280,8 +280,11 @@ function ns.CreateFormatSettings(app)
     end
     local markerNames = { "星星", "圆圈", "菱形", "三角", "月亮", "方块", "叉叉", "骷髅" }
     local function Test()
-        local marker, line = ns.Communication.TestDeclarationMessage(ReadText(sample), ReadText(formats))
-        if marker then status:SetText("匹配第 " .. line .. " 条格式 → 约定：" .. markerNames[marker])
+        local marker, line, name = ns.Communication.TestDeclarationMessage(ReadText(sample), ReadText(formats))
+        if marker or name then
+            local display = name or markerNames[marker]
+            if name and marker then display = display .. "（" .. markerNames[marker] .. "）" end
+            status:SetText("匹配第 " .. line .. " 条格式 → 声明：" .. display)
         else status:SetText(line or "未匹配任何格式。") end
     end
     Button("测试匹配", 480, -398, 116, Test)
@@ -294,7 +297,21 @@ function ns.CreateFormatSettings(app)
         status:SetText("格式已保存，旧约定已清除。请在设置中开启焦点列和聊天声明记录。")
         app.RefreshTargets()
     end)
-    Button("恢复内置格式", 151, -529, 142, function()
+    Button("加入名称格式", 148, -529, 130, function()
+        local template, draft = "PTW焦点：%name", ReadText(formats)
+        local found = false
+        for line in (draft .. "\n"):gmatch("(.-)\n") do
+            if line:match("^%s*(.-)%s*$") == template then found = true; break end
+        end
+        if not found then
+            local separator = draft == "" or draft:sub(-1) == "\n"
+            LoadText(formats, draft .. (separator and "" or "\n") .. template)
+            formats:SetCursorPosition(#formats:GetText())
+        end
+        sample:SetText("PTW焦点：训练假人")
+        status:SetText("名称格式已在草稿中；点击“保存格式”后生效。队友可手动发送 /p PTW焦点：%f。")
+    end)
+    Button("恢复内置格式", 286, -529, 142, function()
         LoadText(formats, ns.Communication.GetDefaultDeclarationFormats())
         scroll:SetVerticalScroll(0)
         status:SetText("已填入内置格式；点击“保存格式”后生效。")

@@ -212,7 +212,7 @@ local function boot(saved)
         end,
         TestDeclarationMessage = function(message, draft)
             state.formatTestCalls[#state.formatTestCalls + 1] = { message = message, draft = draft }
-            return state.formatTestMarker, state.formatTestLineOrError
+            return state.formatTestMarker, state.formatTestLineOrError, state.formatTestName
         end,
     }
     for _, module in ipairs(ADDON_SOURCES) do
@@ -755,6 +755,53 @@ tests["background alpha invalid values and global reset restore default"] = func
     a:click("恢复默认")
     equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0.88); equal(a.frame.backdropColor[4], 0.88)
     equal(a.globals.PartyTargetWatchBackgroundAlphaSlider:GetValue(), 0.88)
+end
+tests["chat names render directly in declaration color and marker-only updates clear the name"] = function()
+    local a = boot({ showFocus = true, acceptFocusCalls = true }); a:load()
+    a.state.group, a.state.count, a.state.names.party1 = true, 1, "声明队员"
+    a.state.focuses.party1 = { state = "declared", name = "光耀施法者", hasDeclaredName = true }
+    a:event("GROUP_ROSTER_UPDATE"); a:tick(0.21)
+    local row = a:rows()[2]
+    equal(row.focus:GetText(), "光耀施法者")
+    equal(row.focus.color[1], 1); equal(row.focus.color[2], 0.8)
+    equal(row.focusMarker:IsShown(), false)
+    a.state.focuses.party1 = { state = "declared", name = "多刺的迅叶龙", marker = 4, hasDeclaredName = true }
+    a:tick(0.21)
+    equal(row.focus:GetText(), "多刺的迅叶龙"); equal(row.focusMarker:IsShown(), true)
+    a.state.focuses.party1 = { state = "declared", name = "三角", marker = 4 }
+    a:tick(0.21)
+    equal(row.focus:GetText(), "约定：三角"); equal(row.focusMarker:IsShown(), true)
+    a.state.focuses.party1 = { state = "none" }; a:tick(0.21)
+    equal(row.focus:GetText(), "无焦点"); equal(row.focusMarker:IsShown(), false)
+    equal(#a.state.transmitted, 0)
+end
+tests["name template shortcut appends draft once and requires an explicit save"] = function()
+    local original = "私人格式%mark"
+    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
+    a:click("加入名称格式")
+    local input = a.globals.PartyTargetWatchFormatsInput
+    equal(input:GetText(), original .. "\nPTW焦点：%name")
+    equal(a.globals.PartyTargetWatchFormatSample:GetText(), "PTW焦点：训练假人")
+    a:click("加入名称格式")
+    equal(input:GetText(), original .. "\nPTW焦点：%name")
+    equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
+    a:click("关闭"); a:command("formats"); equal(input:GetText(), original)
+    a:click("加入名称格式"); a:click("保存格式")
+    equal(a.env.PartyTargetWatchDB.declarationFormats, original .. "\nPTW焦点：%name")
+    equal(#a.state.formatSaveCalls, 1); equal(#a.state.transmitted, 0)
+end
+tests["name-only and marked-name draft previews show names without saving or sending"] = function()
+    local a = boot(); a:load(); a:command("formats")
+    a:edit("PartyTargetWatchFormatsInput", "PTW焦点：%name")
+    a:edit("PartyTargetWatchFormatSample", "PTW焦点：训练假人")
+    a.state.formatTestMarker, a.state.formatTestLineOrError, a.state.formatTestName = nil, 1, "训练假人"
+    a:click("测试匹配")
+    local status = a.globals.PartyTargetWatchFormatSettings.status:GetText()
+    assert(status:find("训练假人", 1, true) and status:find("第 1 条", 1, true))
+    a.state.formatTestMarker = 4; a:click("测试匹配")
+    status = a.globals.PartyTargetWatchFormatSettings.status:GetText()
+    assert(status:find("训练假人（三角）", 1, true))
+    equal(#a.state.formatSaveCalls, 0); equal(a.state.formatClearCalls, 0); equal(#a.state.transmitted, 0)
 end
 tests["monitor has no announcement button row action or keybinding entry point"] = function()
     local a = boot(); a:load()

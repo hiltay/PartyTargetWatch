@@ -31,7 +31,7 @@
 
 0.3.1 已删除读取目标并向普通聊天发送通报的路径及其 UI、命令、快捷键和专用诊断。目标监控、接收公开聊天声明、默认关闭的公开焦点插件通信仍保留。
 
-`C_ChatInfo.SendChatMessage` 标有 HasRestrictions、RestrictedForMacroChatMessages，secret 参数仅允许 untainted 执行。用户点击或按键不会使 addon 获得读取、拼接或序列化受保护目标名称的权限。[ChatInfoDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/ChatInfoDocumentation.lua)
+`C_ChatInfo.SendChatMessage` 标有 HasRestrictions、RestrictedForMacroChatMessages，secret 参数仅允许 untainted 执行。用户点击或按键不会使 addon 获得读取并序列化受保护目标名称用于发送的权限。游戏原生宏自身的占位符展开与 addon 调用发送接口是不同路径，见下方 0.4.0 记录。[ChatInfoDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/ChatInfoDocumentation.lua)
 
 WoW addon 的受支持 Lua API 没有任意 HTTP/socket 客户端接口。暴雪 Browser API 的 UI/事件也不是任意网络传输接口；公开 Battle.net Web API 不是当前客户端的队友焦点/secret 数据读取接口。自建外部服务不能让 addon 序列化不能读取的数据，不能作为本功能解除限制的方案。本项目只使用游戏允许的公开信息与通信 API；没有设计外部桥接。[受支持 API 清单](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/Blizzard_APIDocumentationGenerated.toc)、[BrowserDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/BrowserDocumentation.lua)
 
@@ -40,6 +40,25 @@ WoW addon 的受支持 Lua API 没有任意 HTTP/socket 客户端接口。暴雪
 `IsResting()` 是普通 bool，适合 UI 明确标注“主城/旅店休息区”的开关；它不是精确的“只在城市”判定。本次未找到可替代它的通用 City API。副本类型应优先于休息区分类。[PlayerScriptDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/PlayerScriptDocumentation.lua)
 
 本记录确认的是接口签名、secret 元数据、暴雪 UI 用法与官方公告，不是游戏内验收。Lua mock 无法模拟真实 secret、taint、服务器限流或对方客户端。发布前应人工核验：两个客户端的公开焦点共享与聊天声明；副本/M+整段限制及恢复；标记设置/取消；长中文名称；掉线/离组/重载后的缓存失效。
+
+## 0.4.0：原生宏名称声明
+
+本版新增接收模板 `PTW焦点：%name`，从游戏允许读取的聊天正文中提取名称，不从受保护标记反查怪物。接收方仍检查正文、发言者、当前组员身份与整句格式；秘密值消息不会进入解析。`%name` 与 `%mark` 各至多一个且至少存在其一；仅名称模板需有固定文字，`%name` 与 `%text` 不得相邻。清理后的名称至多 96 字节，拒绝未展开的 `%f`、`%t`；同模板存在不同名称或标记的解释时拒绝消息。
+
+供玩家手动创建、按下的原生宏示例为：
+
+```text
+/stopmacro [@focus,noexists]
+/p PTW焦点：%f
+```
+
+用户于 2026-09-25 现场确认 `/p PTW焦点：%f` 展开为焦点怪物名称。这是本机对原生聊天展开的观察，不证明插件接收端在同一场景中得到公开文字，也不证明战斗、大秘境、其他客户端或完整两行宏均已验证。本次没有找到暴雪当前公开 Lua 实现或正式规范对 `%f` 的独立说明，因此不将用户观察扩大为所有场景保证。
+
+0.4.0 安装后，用户确认插件接收并显示了名称；截图显示名称前带有错误的 `rt4` 文字。修正路径只处理公开聊天名称开头的 `{rt1}`–`{rt8}`，将其提取为图标标记，再显示剩余名称；若与模板显式 `%mark` 冲突则拒绝声明。尚未确定该前缀由用户宏还是游戏展开产生，不声称原生 `%f` 自动添加标记。该修正未读取 `GetRaidTargetIndex`，不是受保护标记反查。修正版已重新打包并在备份首轮 0.4.0 后安装，其他插件保持不变；用户第二轮游戏显示反馈仍待确认。具体包摘要与安装校验见 [测试记录](../validation/TESTING.md)。
+
+暴雪 [2026 年 3 月宏聊天公告](https://us.forums.blizzard.com/en/wow/t/macro-changes-now-live-target-markers-and-chat-messages/2261956/1)说明原生宏仍可发队伍、团队、团队警告消息，遭遇战期间另有组员位置和短时连续发送限制。原生宏可发送不等于 addon 可解析：`CHAT_MSG_PARTY` 等事件的正文可能受保护，发送与接收限制需分别看待。[ChatInfoDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/ChatInfoDocumentation.lua)
+
+本版的黄色名称是发言者当时的声明，不验证真实焦点、不区别同名怪物，也不在对方换焦点时自动更新。没有实现手动标记映射、姓名板反查或普通聊天自动发送。已有保存模板保持不变，“加入名称格式”只改草稿，用户保存后生效。
 
 ## 0.3.1：追随者场景反馈与移除范围
 

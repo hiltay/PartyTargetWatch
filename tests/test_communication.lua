@@ -323,7 +323,7 @@ end
 
 tests["format defaults accept all bare markers and only numbered wrapped markers"] = function()
     local a = boot(false, true)
-    local defaults = "我打断%mark\n我的焦点打断是 {rt%mark}"
+    local defaults = "我打断%mark\n我的焦点打断是 {rt%mark}\nPTW焦点：%name"
     equal(a.comm.GetDefaultDeclarationFormats(), defaults)
     equal(a.comm.GetDeclarationFormats(), defaults)
     equal(a.db.declarationFormats, defaults)
@@ -536,6 +536,172 @@ tests["only chat restriction activation blocks focus sharing"] = function()
     a:event("ADDON_RESTRICTION_STATE_CHANGED", 5, a:secret())
     equal(a.comm.GetFocus("party1").state, "pending")
     equal(#a.state.chat, 0)
+end
+
+tests["name formats capture public names with or without raid markers"] = function()
+    local a = boot(false, true)
+    local marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：光耀播法者")
+    equal(marker, nil); equal(line, 3); equal(name, "光耀播法者")
+    for _, creature in ipairs({ "光耀播法者", "Arak's Sun-Priest", "数字1号" }) do
+        marker, line, name = a.comm.TestDeclarationMessage("我的焦点打断是 {rt4} " .. creature,
+            "我的焦点打断是 {rt%mark} %name")
+        equal(marker, 4); equal(line, 1); equal(name, creature)
+        marker, line, name = a.comm.TestDeclarationMessage("[" .. creature .. "]：骷髅",
+            "[%name]：%mark")
+        equal(marker, 8); equal(line, 1); equal(name, creature)
+    end
+    marker, line, name = a.comm.TestDeclarationMessage("前言：<目标名称>完成", "%text：<%name>完成")
+    equal(marker, nil); equal(line, 1); equal(name, "目标名称")
+    marker, line, name = a.comm.TestDeclarationMessage("我打断三角")
+    equal(marker, 4); equal(line, 1); equal(name, nil)
+end
+
+tests["leading raid token in a declared name becomes an icon marker not creature text"] = function()
+    local a = boot(false, true)
+    for marker = 1, 8 do
+        local got, line, name = a.comm.TestDeclarationMessage("PTW焦点：  {rt" .. marker .. "} 多刺的迅叶龙  ")
+        equal(got, marker); equal(line, 3); equal(name, "多刺的迅叶龙")
+    end
+    local marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：|cffff0000{rt4}|r |cffffffff多刺的迅叶龙|r")
+    equal(marker, 4); equal(line, 3); equal(name, "多刺的迅叶龙")
+    marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：rt4something")
+    equal(marker, nil); equal(line, 3); equal(name, "rt4something")
+    marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：{rt4}" .. string.rep("怪", 32))
+    equal(marker, 4); equal(line, 3); equal(#name, 96)
+    for _, invalid in ipairs({ "{rt0} Monster", "{rt9} Monster", "{rt04} Monster", "{rt4", "{rt4}",
+        "{rt4} {rt5} Monster", "{rt4} %f", "{rt4} %T", "{rt4}" .. string.rep("怪", 33) }) do
+        marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：" .. invalid)
+        equal(marker, nil); equal(name, nil); assert(type(line) == "string")
+    end
+    a.comm.SetAcceptCalls(true)
+    a:event("CHAT_MSG_PARTY", "PTW焦点：{rt4} 多刺的迅叶龙", "Bob")
+    local info = a.comm.GetFocus("party1")
+    equal(info.state, "declared"); equal(info.marker, 4); equal(info.name, "多刺的迅叶龙")
+    equal(info.hasDeclaredName, true)
+    a:event("CHAT_MSG_PARTY", a:secret(), "Bob")
+    equal(a.comm.GetFocus("party1").name, "多刺的迅叶龙")
+    equal(#a.state.chat, 0); equal(#a.state.addon, 0)
+end
+
+tests["embedded raid tokens must agree with explicit markers and capture boundaries"] = function()
+    local a = boot(false, true)
+    local marker, line, name = a.comm.TestDeclarationMessage("指定三角：{rt4} Monster", "指定%mark：%name")
+    equal(marker, 4); equal(line, 1); equal(name, "Monster")
+    marker, line, name = a.comm.TestDeclarationMessage("指定三角：{rt8} Monster",
+        "指定%mark：%name\n指定三角：%name")
+    equal(marker, nil); equal(name, nil); assert(line:find("不一致", 1, true))
+    marker, line, name = a.comm.TestDeclarationMessage("x:{rt4} Monster:y:{rt8} Monster:z",
+        "%text:%name:%text")
+    equal(marker, nil); equal(name, nil); assert(line:find("存在歧义", 1, true))
+    a.comm.SetAcceptCalls(true)
+    a.comm.SetDeclarationFormats("指定%mark：%name")
+    a:event("CHAT_MSG_PARTY", "指定三角：{rt4} Original", "Bob")
+    a:event("CHAT_MSG_PARTY", "指定三角：{rt8} Spoof", "Bob")
+    equal(a.comm.GetFocus("party1").name, "Original")
+    equal(a.comm.GetFocus("party1").marker, 4)
+    equal(#a.state.chat, 0); equal(#a.state.addon, 0)
+end
+
+tests["name format validation avoids unrestricted chat capture and adjacent wildcard splits"] = function()
+    local a = boot(false, true)
+    local before = a.db.declarationFormats
+    for _, invalid in ipairs({ "%name", " %name ", "%text%name", "%name%text", "x%name%text",
+        "%text%namex", "%name%name", "%mark%mark%name", "x%text%text%text:%name" }) do
+        equal(a.comm.SetDeclarationFormats(invalid), false)
+        equal(a.db.declarationFormats, before)
+    end
+    equal(a.comm.SetDeclarationFormats("%name:%text"), true)
+    equal(a.comm.SetDeclarationFormats("%mark%name"), true)
+    equal(a.comm.SetDeclarationFormats("旧格式%mark"), true)
+    local reloaded = boot(false, true, { declarationFormats = a.db.declarationFormats })
+    equal(reloaded.db.declarationFormats, "旧格式%mark", "upgrade must preserve saved user formats")
+end
+
+tests["name captures remove markup and reject empty oversized and unexpanded values"] = function()
+    local a = boot(false, true)
+    local marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：|cffff0000|Hunit:test|h怪物名字|h|r")
+    equal(marker, nil); equal(line, 3); equal(name, "怪物名字")
+    marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：|Ticon:16|t  怪物|Aicon:16:16|a  名字 ||")
+    equal(line, 3); equal(name, "怪物 名字"); assert(not name:find("|", 1, true))
+    for _, invalid in ipairs({ "", " ", "%f", "%t", "%F", "%T", "|cffffffff|r", "|Ticon:16|t", string.rep("x", 97),
+        string.rep("怪", 33) }) do
+        marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：" .. invalid)
+        equal(marker, nil); equal(name, nil); assert(type(line) == "string")
+    end
+    marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：" .. string.rep("怪", 32))
+    equal(line, 3); equal(#name, 96)
+end
+
+tests["ambiguous name or marker captures fail instead of guessing or falling through"] = function()
+    local a = boot(false, true)
+    local marker, reason, name = a.comm.TestDeclarationMessage("focus a:One:Two:z",
+        "focus %text:%name:%text\nfocus a:%name:z")
+    equal(marker, nil); equal(name, nil); assert(reason:find("存在歧义", 1, true))
+    marker, reason, name = a.comm.TestDeclarationMessage("focus a:1Foo:2Bar", "focus %text:%mark%name")
+    equal(marker, nil); equal(name, nil); assert(reason:find("不同标记", 1, true))
+    marker, reason, name = a.comm.TestDeclarationMessage("a:x:x:  Monster", "%text:x:%name")
+    equal(marker, nil); equal(name, nil); assert(reason:find("不同名称", 1, true))
+    -- Different wildcard paths before a fixed name boundary give the same name.
+    marker, reason, name = a.comm.TestDeclarationMessage("abxyz:Monster", "%text%text:%name")
+    equal(marker, nil); equal(reason, 1); equal(name, "Monster")
+end
+
+tests["name capture budget bounds adversarial formats"] = function()
+    local a = boot(false, true)
+    local message = string.rep("A", 75) .. string.rep("x", 97) .. string.rep("B", 75)
+    local marker, reason, name = a.comm.TestDeclarationMessage(message,
+        "%textA%nameB%text")
+    -- Placeholder names require a literal delimiter; adjacent letters are unknown tokens.
+    equal(marker, nil); equal(name, nil); assert(reason:find("格式错误", 1, true))
+    message = string.rep(":A:", 30) .. string.rep("x", 97) .. string.rep(":B:", 20)
+    local template = "%text:A:%name:B:%text"
+    marker, reason, name = a.comm.TestDeclarationMessage(message, string.rep(template .. "\n", 16))
+    equal(marker, nil); equal(name, nil); assert(reason:find("复杂", 1, true))
+end
+
+tests["named declarations retain membership secrecy expiry clearing and no sending"] = function()
+    local a = boot(false, true)
+    a:event("CHAT_MSG_PARTY", "PTW焦点：Ignored", "Bob")
+    equal(a.comm.GetFocus("party1").state, "disabled")
+    a.comm.SetAcceptCalls(true)
+    a:event("CHAT_MSG_PARTY", "PTW焦点：光耀播法者", "Bob")
+    local info = a.comm.GetFocus("party1")
+    equal(info.state, "declared"); equal(info.name, "光耀播法者")
+    equal(info.marker, nil); equal(info.hasDeclaredName, true)
+    for _, sender in ipairs({ "Eve", "Bob-OtherRealm" }) do
+        a:event("CHAT_MSG_PARTY", "PTW焦点：Spoof", sender)
+    end
+    a:event("CHAT_MSG_PARTY", a:secret(), "Bob")
+    a:event("CHAT_MSG_PARTY", "PTW焦点：Secret sender", a:secret())
+    equal(a.comm.GetFocus("party1").name, "光耀播法者")
+    a.state.lockdown = true
+    equal(a.comm.GetFocus("party1").name, "光耀播法者", "already public declarations remain readable")
+    a:advance(300); equal(a.comm.GetFocus("party1").state, "disabled")
+    a:event("CHAT_MSG_PARTY", "PTW焦点：New name", "Bob")
+    a:event("CHAT_MSG_PARTY", "取消打断", "Bob")
+    equal(a.comm.GetFocus("party1").state, "disabled")
+    a:event("CHAT_MSG_PARTY", "我打断三角", "Bob")
+    equal(a.comm.GetFocus("party1").hasDeclaredName, false)
+    a:event("CHAT_MSG_PARTY", "PTW焦点：New name", "Bob")
+    a.comm.SetDeclarationFormats("换格式%name")
+    equal(a.comm.GetFocus("party1").state, "disabled")
+    equal(#a.state.chat, 0); equal(#a.state.addon, 0)
+end
+
+tests["name sample testing does not mutate declarations or saved settings"] = function()
+    local a = boot(false, true)
+    a.comm.SetAcceptCalls(true)
+    a:event("CHAT_MSG_PARTY", "我打断三角", "Bob")
+    local saved, changed = a.db.declarationFormats, a.state.changed
+    local marker, line, name = a.comm.TestDeclarationMessage("焦点=<Creature>", "焦点=<%name>")
+    equal(marker, nil); equal(line, 1); equal(name, "Creature")
+    equal(a.db.declarationFormats, saved); equal(a.state.changed, changed)
+    equal(a.comm.GetFocus("party1").name, "三角"); equal(a.comm.GetFocus("party1").hasDeclaredName, false)
+    marker, line, name = a.comm.TestDeclarationMessage(a:secret(), "焦点=<%name>")
+    equal(marker, nil); equal(name, nil)
+    marker, line, name = a.comm.TestDeclarationMessage("焦点=<Creature>", a:secret())
+    equal(marker, nil); equal(name, nil)
+    equal(#a.state.chat, 0); equal(#a.state.addon, 0)
 end
 
 tests["target monitoring and chat declarations expose no outgoing announcement API"] = function()
