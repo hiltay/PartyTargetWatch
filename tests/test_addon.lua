@@ -454,17 +454,17 @@ end
 tests["focus column sharing and declaration options use settings callbacks"] = function()
     local a = boot(); a.state.focuses.player = { state = "ok", name = "真实焦点", marker = 4 }
     a:load(); equal(a:rows()[1].focus.shown, false)
-    a:command("settings"); a:click("显示队友焦点列"); a:tick(0.21)
+    a:command("settings"); a:click("显示焦点 / 通报列"); a:tick(0.21)
     equal(a.env.PartyTargetWatchDB.showFocus, true); equal(a:rows()[1].focus.shown, true)
     equal(a:rows()[1].focus.text, "真实焦点")
-    a:click("启用焦点共享（需队友也启用）")
+    a:click("插件间焦点同步（可选）")
     equal(a.env.PartyTargetWatchDB.shareFocus, true); equal(a.state.enabledCalls[#a.state.enabledCalls], true)
-    a:click("记录聊天中的打断声明"); equal(a.env.PartyTargetWatchDB.acceptFocusCalls, true)
+    a:click("接收队友的焦点通报"); equal(a.env.PartyTargetWatchDB.acceptFocusCalls, true)
     equal(a.state.acceptCalls[#a.state.acceptCalls], true)
-    a:click("记录聊天中的打断声明"); equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
+    a:click("接收队友的焦点通报"); equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
     equal(a.state.acceptCalls[#a.state.acceptCalls], false)
-    a:click("显示队友焦点列"); equal(a:rows()[1].focus.shown, false)
-    a:click("启用焦点共享（需队友也启用）")
+    a:click("显示焦点 / 通报列"); equal(a:rows()[1].focus.shown, false)
+    a:click("插件间焦点同步（可选）")
     equal(a.env.PartyTargetWatchDB.shareFocus, false); equal(a.state.enabledCalls[#a.state.enabledCalls], false)
 end
 tests["public target markers update through eight values and clear"] = function()
@@ -505,6 +505,17 @@ tests["focus status changes cannot leave old names or marker icons"] = function(
         local icon = a:rows()[1].focusMarker
         assert(not icon.shown or icon.texture == nil, "stale focus icon for " .. state)
     end
+    -- Receiving public focus calls is independent of optional addon sync.
+    -- Toggling reception must not tell a chat-only user to enable sync.
+    equal(a:rows()[1].focus.text, "同步未开启")
+    a:command("settings"); a:click("接收队友的焦点通报"); a:tick(0.21)
+    equal(a.env.PartyTargetWatchDB.shareFocus, false)
+    equal(a:rows()[1].focus.text, "等待通报")
+    a.state.focuses.player = { state = "declared", name = "训练假人", hasDeclaredName = true }; a:tick(0.21)
+    equal(a:rows()[1].focus.text, "训练假人")
+    a.state.focuses.player = { state = "disabled" }
+    a:click("接收队友的焦点通报"); a:tick(0.21)
+    equal(a:rows()[1].focus.text, "同步未开启")
 end
 tests["reset lets communication setters observe active settings before defaulting"] = function()
     local a = boot({ shareFocus = true, acceptFocusCalls = true }); a:load()
@@ -513,8 +524,8 @@ tests["reset lets communication setters observe active settings before defaultin
     equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
     equal(a.state.enabledCalls[#a.state.enabledCalls], false, "reset skipped sharing transition")
     equal(a.state.acceptCalls[#a.state.acceptCalls], false, "reset skipped declaration transition")
-    equal(a:button("启用焦点共享（需队友也启用）"):GetChecked(), false)
-    equal(a:button("记录聊天中的打断声明"):GetChecked(), false)
+    equal(a:button("插件间焦点同步（可选）"):GetChecked(), false)
+    equal(a:button("接收队友的焦点通报"):GetChecked(), false)
 end
 tests["scene checkboxes immediately hide recover and stay synchronized after reset"] = function()
     local a = boot(); a:load(); a:command("settings")
@@ -569,7 +580,7 @@ end
 tests["format editor opens from settings or slash without saving drafts"] = function()
     local original = "第一路我打断%mark\n第二路我打断%mark"
     local a = boot({ declarationFormats = original }); a:load(); a:command("hide"); a:command("settings")
-    a:click("通报格式…")
+    a:click("接收格式…")
     local panel, input = a.globals.PartyTargetWatchFormatSettings, a.globals.PartyTargetWatchFormatsInput
     equal(panel:IsVisible(), true); equal(input:GetText(), original); equal(input.multiLine, true)
     equal(input.cursorPosition, 0, "loading formats must reveal the beginning")

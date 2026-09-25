@@ -2,7 +2,7 @@
   "name": "PartyTargetWatch",
   "game": "World of Warcraft",
   "flavor": "Retail",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "game_versions": [
     "12.1.0"
   ],
@@ -11,7 +11,7 @@
   "source_url": "https://github.com/hiltay/PartyTargetWatch",
   "issues_url": "https://github.com/hiltay/PartyTargetWatch/issues",
   "recommended_release_type": "beta",
-  "release_type_reason": "Version 0.4.0 has offline mock coverage and user-confirmed native %f expansion, addon name receipt and corrected icon/clean-name display. Cross-client delivery, the complete two-line macro and combat/Mythic+ behavior remain unverified.",
+  "release_type_reason": "Version 0.4.1 clarifies settings and incoming-announcement UI without changing chat parsing or synchronization. Its new UI awaits an in-game reload check. Version 0.4.0 name/icon display and the SeUI custom-format workflow were user-confirmed locally; cross-client and combat/Mythic+ behavior remain unverified.",
   "in_game_ui_locales": [
     "zhCN"
   ],
@@ -30,12 +30,10 @@
   },
   "icon_512_source": "icon-512.png",
   "icon_rights": "Original vector artwork created for PartyTargetWatch, distributed under the MIT License; no third-party game, platform, or addon artwork used.",
-  "archive_relative_path": "../../dist/PartyTargetWatch-0.4.0.zip",
-  "live_verified": [
-    "User confirmed native focus-name expansion and addon receipt. After reloading the leading-marker fix, the user confirmed both the marker icon and clean monster name display correctly; the rt4 text artifact is gone."
-  ],
+  "archive_relative_path": "../../dist/PartyTargetWatch-0.4.1.zip",
+  "live_verified": [],
   "not_live_verified": [
-    "Version 0.4.0 behavior beyond the locally confirmed focus-name declaration display",
+    "Version 0.4.1 settings labels, ordering, receiving-format explanations and waiting status after /reload",
     "Cross-client name declaration receipt, native two-line macro and complete upgrade preservation of saved templates",
     "Multiline declaration editor, cursor scrolling, Chinese input and literal pipe preservation",
     "Draft sample tests, save/cancel boundaries and template persistence",
@@ -47,8 +45,8 @@
     "Combat and Mythic+ restriction handling",
     "Saved-setting persistence"
   ],
-  "compatibility_note": "Name declarations are parsed only from already-sent public chat. Native macro %f expansion was user-confirmed locally; secret chat messages are ignored. Names are declared snapshots, not verified real focus, and do not identify individual same-name enemies. Marker-only declarations remain supported without marker-to-monster lookup. Outgoing target calls removed in 0.3.1 remain absent. Optional public focus addon messages are unchanged.",
-  "upgrade_note": "Existing saved templates are preserved. In /ptw formats use 加入名称格式 to append PTW焦点：%name to the draft, then 保存格式. The release still contains 7 files and no Bindings.xml; preserve WTF SavedVariables.",
+  "compatibility_note": "Enable showFocus and acceptFocusCalls for public chat announcements; senders do not need the addon. Optional shareFocus requires both clients and game-permitted readable data and communication. Yellow names/markers show the latest announcement, expire in five minutes and require a new announcement after changing focus; 取消打断 clears the sender record. Secret messages are ignored. Chat parsing and synchronization protocol are unchanged in 0.4.1.",
+  "upgrade_note": "Existing saved switches and templates are preserved. The settings entry is now 接收格式…. The release still contains 7 files and no Bindings.xml; preserve WTF SavedVariables.",
   "publication_status": "prepared",
   "historical_live_verified": {
     "version": "0.1.0",
@@ -62,8 +60,8 @@
   },
   "default_off_controls": [
     "showFocus",
-    "shareFocus",
-    "acceptFocusCalls"
+    "acceptFocusCalls",
+    "shareFocus"
   ],
   "focus_snapshot_ttl_seconds": 12,
   "chat_declaration_ttl_seconds": 300,
@@ -97,10 +95,17 @@
     "lua_communication_passed": 37,
     "delivery_passed": 7,
     "delivery_skipped": 1,
-    "skip_reason": "Windows symbolic-link creation permission unavailable (WinError 1314)"
+    "skip_reason": "Windows symbolic-link creation permission unavailable (WinError 1314)",
+    "version": "0.4.1"
   },
   "native_focus_macro": "/stopmacro [@focus,noexists]\n/p PTW焦点：%f",
   "current_user_observations": [
-    "On 2026-09-25 the user confirmed native %f expansion and initial 0.4.0 name receipt/display. The first screenshot exposed a leading rt4 text artifact. After the correction and /reload, the user confirmed normal icon and monster-name display. The marker prefix source was not established; this does not establish arbitrary third-party addon %f support."
-  ]
+    "Historical 0.4.0: on 2026-09-25 the user confirmed native %f expansion, addon receipt and clean icon/name display after the leading-marker fix, and then confirmed the SeUI custom-format workflow. This does not establish arbitrary third-party addon %f support or cross-client/combat/Mythic+ behavior.",
+    "Version 0.4.1 UI verification is pending an in-game reload check."
+  ],
+  "focus_settings_labels": {
+    "showFocus": "显示焦点 / 通报列",
+    "acceptFocusCalls": "接收队友的焦点通报",
+    "shareFocus": "插件间焦点同步（可选）"
+  }
 }

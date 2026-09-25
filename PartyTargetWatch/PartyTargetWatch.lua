@@ -107,7 +107,7 @@ local function UpdateMarker(texture, unit)
     local ok, index = pcall(GetRaidTargetIndex, unit)
     if ok then SetMarker(texture, index) end
 end
-local focusLabels = { disabled = "共享未开启", pending = "等待共享", stale = "共享已过期",
+local focusLabels = { disabled = "同步未开启", pending = "等待同步", stale = "同步已过期",
     none = "无焦点", restricted = "受游戏限制", unavailable = "不可用", offline = "离线" }
 local function UpdateFocus(row, unit)
     row.focusMarker:Hide()
@@ -119,7 +119,8 @@ local function UpdateFocus(row, unit)
         else row.focus:SetText("约定：" .. (focus.name or "未指定")) end
         row.focus:SetTextColor(1, 0.8, 0.35)
     elseif focus.name then row.focus:SetText(focus.name)
-    else row.focus:SetText(focusLabels[focus.state] or "等待共享") end
+    elseif focus.state == "disabled" and db.acceptFocusCalls then row.focus:SetText("等待通报")
+    else row.focus:SetText(focusLabels[focus.state] or "等待同步") end
     SetMarker(row.focusMarker, focus.marker)
 end
 local function UpdateRow(row, unit)
@@ -184,8 +185,9 @@ local function CreateRow(index)
     row:SetScript("OnEnter", function()
         if not GameTooltip then return end
         GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-        GameTooltip:SetText("队友目标与焦点声明")
-        GameTooltip:AddLine("黄色名称或“约定”来自聊天声明，不代表已验证的实际焦点。", 1, 1, 1, true)
+        GameTooltip:SetText("队友目标与焦点通报")
+        GameTooltip:AddLine("黄色名称或标记来自队友最近一次通报。", 1, 1, 1, true)
+        GameTooltip:AddLine("再次通报才会更新；记录保留 5 分钟。", 1, 1, 1, true)
         GameTooltip:Show()
     end)
     row:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
@@ -218,7 +220,7 @@ function app.RebuildRoster()
             headers[column] = header
             header[1]:SetText("队友")
             header[2]:SetText("当前目标")
-            header[3]:SetText("焦点 / 约定")
+            header[3]:SetText("焦点 / 通报")
         end
         for index, x in ipairs({ 16, 165, 432 }) do
             local label = header[index]
@@ -241,7 +243,8 @@ function app.RebuildRoster()
     lockButton:SetText(db.locked and "解锁" or "锁定")
     if app.preview then footer:SetText("示例数据 · 点击“结束预览”恢复实时监控")
     elseif not IsInGroup() then footer:SetText("未组队 · 当前显示自己的目标")
-    else footer:SetText(#units .. " 名成员 · 黄色内容来自聊天声明，不代表实际焦点") end
+    elseif db.showFocus then footer:SetText(#units .. " 名成员 · 黄色：队友最近一次通报")
+    else footer:SetText(#units .. " 名成员") end
     app.ApplyVisibility() app.RefreshTargets() app.SyncSettings()
 end
 function app.TogglePreview() app.preview = not app.preview db.hidden = false app.RebuildRoster() end
@@ -305,7 +308,7 @@ local function HandleCommand(message)
         if not app.ValidNumber(scale, 0.6, 2) then app.Message("缩放范围：/ptw scale 0.6 到 2") return end
         db.scale = scale app.RestorePosition()
     else
-        app.Message("/ptw settings 设置；formats 通报格式；show 显示；hide 隐藏；unlock 解锁拖动；lock 锁定；test 示例预览；reset 重置；scale 1 缩放。")
+        app.Message("/ptw settings 设置；formats 接收格式；show 显示；hide 隐藏；unlock 解锁拖动；lock 锁定；test 示例预览；reset 重置；scale 1 缩放。")
         return
     end
     app.RebuildRoster()

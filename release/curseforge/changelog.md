@@ -1,3 +1,23 @@
+## 0.4.1 — Beta
+
+- Reorganized **焦点与通报** settings: show the focus/announcement column, receive teammates' announcements, then optional addon focus synchronization. Saved switch states are preserved.
+- Renamed the template entry **接收格式…** and clarified the receiving workflow. Chat needs only the first two controls; senders do not need PartyTargetWatch. SeUI sends `%f`, while incoming templates capture `%name`.
+- Renamed the main column **焦点 / 通报**, identified yellow text as the latest teammate announcement and added **等待通报** when receiving is enabled, synchronization is off and no record is available.
+- Retained five-minute announcement records, the `取消打断` cancellation message and optional game-permitted synchronization. Changing focus requires a new announcement; chat parsing and the synchronization protocol are unchanged.
+
+This release changes UI and explanations. Its new UI awaits an in-game reload check; 0.4.0 name/icon and SeUI workflow confirmations remain historical evidence. CurseForge materials remain prepared, not submitted or published.
+
+## 0.4.1 — 测试版
+
+- “焦点与通报”设置依次显示“显示焦点 / 通报列”“接收队友的焦点通报”“插件间焦点同步（可选）”，保留已有开关状态。
+- 格式入口改为“接收格式…”，说明聊天方案只需前两项，发送方无需本插件；SeUI 发送端用 `%f`，接收模板用 `%name`。
+- 主窗口列名改为“焦点 / 通报”，底部注明黄色内容是队友最近一次通报；接收开启、同步关闭且无记录时显示“等待通报”。
+- 保留 5 分钟通报有效期、“取消打断”清除本人记录，以及游戏允许时的可选同步；换焦点需重新通报，聊天解析与同步协议不变。
+
+本版调整界面与说明，新界面待 `/reload` 后实机确认；0.4.0 名称、图标及 SeUI 联动成功反馈保留为历史记录。CurseForge 资料为 prepared，尚未提交或发布。
+
+---
+
 ## 0.4.0 — Beta
 
 - Added `%name` capture for incoming public chat. Name-only and name-plus-marker declarations display the declared name in yellow; marker-only templates remain supported. A declaration is a snapshot, not verified current focus.
