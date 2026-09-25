@@ -32,7 +32,7 @@ An expanded public message such as `PTW焦点：Monster Name` can then display *
 
 Existing saved templates are preserved on upgrade. The **加入名称格式** button appends the new template to the editor draft; click **保存格式** to apply it. Closing without saving leaves the active configuration unchanged.
 
-The user has confirmed native `%f` expansion and initial addon name receipt/display. A screenshot exposed a leading `rt4` text artifact; the fix extracts a leading `{rtN}` into a marker icon. That correction, the complete two-line macro, cross-client delivery and combat/Mythic+ behavior still require live verification. Native chat delivery does not guarantee that an addon receives readable text. Protected messages are ignored.
+The user has confirmed native `%f` expansion and initial addon name receipt/display. A screenshot exposed a leading `rt4` text artifact; the fix extracts a leading `{rtN}` into a marker icon. The user then confirmed that both the icon and clean monster name display correctly. The complete two-line macro, cross-client delivery and combat/Mythic+ behavior still require live verification. Native chat delivery does not guarantee that an addon receives readable text. Protected messages are ignored.
 
 ## Template rules
 
@@ -58,7 +58,7 @@ Marker-only messages are not resolved to monster names. The name-display feature
 
 ## 0.4.0 Beta and verification
 
-Targets Retail **12.1.0 / TOC 120100**. Offline checks passed: **76 Lua mock scenarios (39 UI, 37 communication)** and seven delivery tests; one delivery test was skipped for Windows symbolic-link privilege. Initial name receipt/display was user-confirmed; the subsequent leading-marker correction still needs live verification. Offline tests cannot establish real secret-value behavior, server delivery or complete compatibility.
+Targets Retail **12.1.0 / TOC 120100**. Offline checks passed: **76 Lua mock scenarios (39 UI, 37 communication)** and seven delivery tests; one delivery test was skipped for Windows symbolic-link privilege. The user confirmed native focus-name expansion, addon receipt and correct icon/name display after the leading-marker fix. Cross-client and combat/Mythic+ behavior remain unverified. Offline tests cannot establish real secret-value behavior, server delivery or complete compatibility.
 
 For a manual upgrade, back up the old addon folder outside `AddOns`, then replace it with the complete new folder so retired `Bindings.xml` is removed. Preserve `WTF` SavedVariables to keep settings. CurseForge materials remain prepared, not submitted or published. [API sources and verification boundaries](https://github.com/hiltay/PartyTargetWatch/blob/main/docs/API-NOTES.md).
 
@@ -85,7 +85,7 @@ PartyTargetWatch（队友目标）是独立的《魔兽世界》正式服插件�
 
 升级会保留原有保存格式。点击“加入名称格式”将新模板追加到草稿，再点击“保存格式”才生效；关闭未保存的草稿不会覆盖配置。
 
-用户已在本机确认 `%f` 展开及插件接收/显示名称；截图发现的 `rt4` 前缀文字已改为提取标记图标，修正后的显示仍待复验。完整两行宏、跨客户端送达及战斗/大秘境效果仍待实测。原生宏发得出来，不保证插件当时能读取消息；受保护的聊天正文或发言者会被忽略。
+用户已在本机确认 `%f` 展开及插件接收/显示名称；截图发现的 `rt4` 前缀文字已改为提取标记图标，用户第二轮确认图标和纯怪物名称均正常显示。完整两行宏、跨客户端送达及战斗/大秘境效果仍待实测。原生宏发得出来，不保证插件当时能读取消息；受保护的聊天正文或发言者会被忽略。
 
 ### 格式与状态
 
@@ -105,7 +105,7 @@ PartyTargetWatch（队友目标）是独立的《魔兽世界》正式服插件�
 
 ### 0.4.0 测试版
 
-面向正式服 **12.1.0 / TOC 120100**。76 个 Lua mock 场景通过（39 UI、37 通信），交付测试 7 通过、1 因 Windows 符号链接权限跳过。**首轮名称接收/显示已由用户确认，前置标记修正仍待复验**；模拟测试不代表真实受保护值、服务器送达或所有场景兼容。
+面向正式服 **12.1.0 / TOC 120100**。76 个 Lua mock 场景通过（39 UI、37 通信），交付测试 7 通过、1 因 Windows 符号链接权限跳过。**用户已确认名称接收及修正后的图标、纯怪物名称显示**，跨客户端和战斗/M+效果未验证；模拟测试不代表真实受保护值、服务器送达或所有场景兼容。
 
 手动升级时把旧插件目录备份到 `AddOns` 之外，再用新版完整目录替换以移除废弃的 `Bindings.xml`；保留 `WTF` 中的 SavedVariables 即可保留设置。CurseForge 资料仍为 prepared，尚未提交或发布。[接口依据与验证边界](https://github.com/hiltay/PartyTargetWatch/blob/main/docs/API-NOTES.md)。
 

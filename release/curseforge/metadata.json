@@ -11,7 +11,7 @@
   "source_url": "https://github.com/hiltay/PartyTargetWatch",
   "issues_url": "https://github.com/hiltay/PartyTargetWatch/issues",
   "recommended_release_type": "beta",
-  "release_type_reason": "Version 0.4.0 has offline mock coverage and user-confirmed native %f expansion plus initial addon name receipt/display. A leading-marker text artifact was identified from the screenshot and fixed; the correction, cross-client delivery and combat/Mythic+ behavior still need live verification.",
+  "release_type_reason": "Version 0.4.0 has offline mock coverage and user-confirmed native %f expansion, addon name receipt and corrected icon/clean-name display. Cross-client delivery, the complete two-line macro and combat/Mythic+ behavior remain unverified.",
   "in_game_ui_locales": [
     "zhCN"
   ],
@@ -32,10 +32,10 @@
   "icon_rights": "Original vector artwork created for PartyTargetWatch, distributed under the MIT License; no third-party game, platform, or addon artwork used.",
   "archive_relative_path": "../../dist/PartyTargetWatch-0.4.0.zip",
   "live_verified": [
-    "User confirmed initial 0.4.0 name declaration receipt/display after native focus-name chat. The screenshot also exposed a leading rt4 text artifact."
+    "User confirmed native focus-name expansion and addon receipt. After reloading the leading-marker fix, the user confirmed both the marker icon and clean monster name display correctly; the rt4 text artifact is gone."
   ],
   "not_live_verified": [
-    "Final 0.4.0 leading-marker display correction",
+    "Version 0.4.0 behavior beyond the locally confirmed focus-name declaration display",
     "Cross-client name declaration receipt, native two-line macro and complete upgrade preservation of saved templates",
     "Multiline declaration editor, cursor scrolling, Chinese input and literal pipe preservation",
     "Draft sample tests, save/cancel boundaries and template persistence",
@@ -101,6 +101,6 @@
   },
   "native_focus_macro": "/stopmacro [@focus,noexists]\n/p PTW焦点：%f",
   "current_user_observations": [
-    "On 2026-09-25 the user confirmed native %f expansion and initial 0.4.0 name receipt/display. The screenshot showed a leading rt4 text artifact; its correction still awaits live verification. The source of that marker prefix was not established."
+    "On 2026-09-25 the user confirmed native %f expansion and initial 0.4.0 name receipt/display. The first screenshot exposed a leading rt4 text artifact. After the correction and /reload, the user confirmed normal icon and monster-name display. The marker prefix source was not established; this does not establish arbitrary third-party addon %f support."
   ]
 }

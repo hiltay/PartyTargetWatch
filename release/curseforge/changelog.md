@@ -6,7 +6,7 @@
 - Added the default `PTW焦点：%name` template while preserving saved user templates. **加入名称格式** appends it to the draft; **保存格式** applies it.
 - Documented a manually pressed native macro: `/stopmacro [@focus,noexists]` followed by `/p PTW焦点：%f`. No addon-driven normal-chat sending, target-call button or key binding was restored.
 
-76 Lua mock scenarios passed (39 UI, 37 communication); delivery: 7 passed, 1 skipped for Windows symbolic-link privilege. The user confirmed native `%f` expansion and initial addon name receipt/display. The subsequent leading-marker correction, complete two-line macro, cross-client delivery and combat/Mythic+ behavior remain unverified in game. CurseForge materials remain prepared, not submitted or published.
+76 Lua mock scenarios passed (39 UI, 37 communication); delivery: 7 passed, 1 skipped for Windows symbolic-link privilege. The user confirmed native `%f` expansion and initial addon name receipt/display. After the leading-marker correction, the user confirmed that both the icon and clean monster name display correctly. The complete two-line macro, cross-client delivery and combat/Mythic+ behavior remain unverified in game. CurseForge materials remain prepared, not submitted or published.
 
 ## 0.4.0 — 测试版
 
@@ -16,7 +16,7 @@
 - 新增默认 `PTW焦点：%name`，保留用户已保存模板。“加入名称格式”只追加到草稿，“保存格式”后才生效。
 - 提供玩家手动按下的原生宏：`/stopmacro [@focus,noexists]` 后接 `/p PTW焦点：%f`。不恢复插件主动普通聊天发送、通报按钮或快捷键。
 
-76 个 Lua mock 通过（39 UI、37 通信）；交付检查 7 通过、1 因 Windows 符号链接权限跳过。用户已确认原生 `%f` 展开及首轮插件接收/显示名称；前置标记修正、完整两行宏、跨客户端及战斗/大秘境效果仍待实机验证。CurseForge 资料为 prepared，尚未提交或发布。
+76 个 Lua mock 通过（39 UI、37 通信）；交付检查 7 通过、1 因 Windows 符号链接权限跳过。用户已确认原生 `%f` 展开及首轮插件接收/显示名称；前置标记修正后，用户第二轮确认图标和纯怪物名称均正常显示。完整两行宏、跨客户端及战斗/大秘境效果仍待实机验证。CurseForge 资料为 prepared，尚未提交或发布。
 
 ---
 
