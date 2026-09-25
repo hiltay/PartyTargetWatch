@@ -1,3 +1,21 @@
+## 0.5.0 — Beta
+
+- Removed all focus features after user-reported Mythic+ failure: the focus column, local focus reads, chat listeners and parsers, announcement cache, format editor and related settings entries.
+- Retained current-target names, raid markers, opacity, scene filters, positioning, scale and preview. The minimap button keeps left-click settings access.
+- Clear retired focus preferences on load while preserving other settings. The development installer backs up and removes the retired Communication.lua module during upgrades.
+- 27 Lua scenarios and 7 delivery checks passed; 1 symbolic-link check was skipped for missing Windows privileges. This release has not been verified in-game. CurseForge materials remain prepared, not submitted or published.
+
+## 0.5.0 — 测试版
+
+- 根据用户大秘境测试失败反馈，移除焦点列、本机焦点读取、聊天监听与解析、通报缓存、自定义格式编辑器及相关设置入口。
+- 保留当前目标名称、团队标记、透明度、场景筛选、位置、大小与预览；小地图按钮保留左键打开设置。
+- 载入时清除退役焦点配置，保留其他设置；开发安装工具会先备份再清理旧 Communication.lua。
+- 27 个 Lua 场景与 7 项交付检查通过，1 项因 Windows 符号链接权限跳过。本版未实机验证；CurseForge 资料仍为 prepared，未提交或发布。
+
+以下为历史版本记录，其中已删除的功能不适用于 0.5.0。
+
+---
+
 ## 0.4.3 — Beta
 
 - Reduced incoming defaults to exactly `我打断%mark` and `我的焦点打断是 {rt%mark} %name`. New installs can receive the matching SeUI name-and-marker announcement without adding a template; other custom formats remain supported.

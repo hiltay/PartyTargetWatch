@@ -1,1 +1,1 @@
-Party targets and customizable focus-name or marker announcements received from public group chat. Simplified Chinese UI.
+Monitor party and raid members' current targets and raid markers in a movable window. Simplified Chinese UI.

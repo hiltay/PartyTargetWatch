@@ -79,7 +79,6 @@ local function boot(hasSettings)
     state.app = {
         db = {},
         ShowSettings = function() calls[#calls + 1] = "settings" end,
-        ShowFormats = function() calls[#calls + 1] = "formats" end,
     }
     function state:installSettingsAPI()
         env.Settings = {
@@ -130,30 +129,35 @@ tests["registration waits for initialized settings and is idempotent"] = functio
     equal(a.registrations[1].name, "PartyTargetWatch 队友目标")
 end
 
-tests["minimap clicks open the two existing windows and tooltip explains controls"] = function()
+tests["minimap left click opens settings and tooltip explains the retained control"] = function()
     local a = boot(true); a:initialize()
     local button = a.globals.PartyTargetWatchMinimapButton
-    equal(button.clicks[1], "LeftButtonUp"); equal(button.clicks[2], "RightButtonUp")
+    equal(#button.clicks, 1); equal(button.clicks[1], "LeftButtonUp")
     a:click(button, "LeftButton"); a:click(button, "RightButton"); a:click(button, "MiddleButton")
-    equal(#a.calls, 2); equal(a.calls[1], "settings"); equal(a.calls[2], "formats")
+    equal(#a.calls, 1); equal(a.calls[1], "settings")
     button.scripts.OnEnter(button)
     equal(a.env.GameTooltip.owner, button); equal(a.env.GameTooltip.shown, true)
     assert(a.env.GameTooltip.lines[1]:find("左键", 1, true))
-    assert(a.env.GameTooltip.lines[2]:find("右键", 1, true))
+    equal(#a.env.GameTooltip.lines, 1)
     button.scripts.OnLeave(button); equal(a.env.GameTooltip.shown, false)
 end
 
-tests["native Settings category buttons close native settings before opening addon windows"] = function()
+tests["native Settings category opens settings without a removed formats entry"] = function()
     local a = boot(true); a:initialize()
     a.env.SettingsPanel:Show()
     a:click(a:canvasButton("打开设置"))
     equal(a.calls[1], "hide native settings"); equal(a.calls[2], "settings")
     equal(a.env.SettingsPanel:IsShown(), false)
-    a.env.SettingsPanel:Show()
-    a:click(a:canvasButton("编辑接收格式"))
-    equal(a.calls[3], "hide native settings"); equal(a.calls[4], "formats")
+    local buttonCount = 0
+    for _, child in ipairs(a.registrations[1].panel.children) do
+        if child.kind == "Button" then
+            buttonCount = buttonCount + 1
+            equal(child.text, "打开设置")
+        end
+    end
+    equal(buttonCount, 1)
     a.env.SettingsPanel = nil
-    a:click(a:canvasButton("打开设置")); equal(a.calls[5], "settings")
+    a:click(a:canvasButton("打开设置")); equal(a.calls[3], "settings")
 end
 
 tests["unavailable Settings APIs preserve access and register once after their addon loads"] = function()
@@ -196,7 +200,7 @@ tests["minimap collector can discover reparent resize and show the button withou
     equal(button:GetParent(), flyout); equal(button:GetWidth(), 24)
     equal(#button.points, 1); equal(button.points[1][2], flyout); equal(button.points[1][4], 8)
     equal(button.icon.points[1][1], "TOPLEFT", "icon collector layout was overwritten")
-    a:click(button, "RightButton"); equal(a.calls[1], "formats")
+    a:click(button, "LeftButton"); equal(a.calls[1], "settings")
 end
 
 local names = {}

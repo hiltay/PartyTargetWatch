@@ -16,8 +16,7 @@ local validPoints = { TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true,
 local defaults = { point = "CENTER", relativePoint = "CENTER", x = -320, y = 100,
     scale = 1, locked = false, hidden = false, showWorld = true, showResting = true,
     showDungeon = true, showRaid = true, showScenario = true, showBattleground = true,
-    showArena = true, showFocus = false, acceptFocusCalls = false,
-    backgroundAlpha = 0.88 }
+    showArena = true, backgroundAlpha = 0.88 }
 local sceneSettings = { world = "showWorld", resting = "showResting", party = "showDungeon",
     raid = "showRaid", scenario = "showScenario", pvp = "showBattleground", arena = "showArena" }
 local sceneLabels = { world = "野外", resting = "主城/旅店（休息区）", party = "地下城",
@@ -37,7 +36,8 @@ function app.SyncSettings() if app.settings then app.settings.Sync() end end
 local function InitializeDB()
     if type(PartyTargetWatchDB) ~= "table" then PartyTargetWatchDB = {} end
     db, app.db = PartyTargetWatchDB, PartyTargetWatchDB
-    db.shareFocus = nil
+    -- Retire focus settings while preserving target display preferences.
+    db.shareFocus, db.showFocus, db.acceptFocusCalls, db.declarationFormats = nil, nil, nil, nil
     for key, value in pairs(defaults) do
         if IsSecret(db[key]) or type(db[key]) ~= type(value) then db[key] = value end
     end
@@ -108,30 +108,13 @@ local function UpdateMarker(texture, unit)
     local ok, index = pcall(GetRaidTargetIndex, unit)
     if ok then SetMarker(texture, index) end
 end
-local focusLabels = { disabled = "未开启接收", pending = "等待通报",
-    none = "无焦点", restricted = "受游戏限制", unavailable = "不可用", offline = "离线" }
-local function UpdateFocus(row, unit)
-    row.focusMarker:Hide()
-    if not db.showFocus then row.focus:SetText("") return end
-    local focus = ns.Communication.GetFocus(unit)
-    row.focus:SetTextColor(0.73, 0.82, 0.92)
-    if focus.state == "declared" then
-        if focus.hasDeclaredName then row.focus:SetText(focus.name)
-        else row.focus:SetText("约定：" .. (focus.name or "未指定")) end
-        row.focus:SetTextColor(1, 0.8, 0.35)
-    elseif focus.name then row.focus:SetText(focus.name)
-    else row.focus:SetText(focusLabels[focus.state] or "等待通报") end
-    SetMarker(row.focusMarker, focus.marker)
-end
 local function UpdateRow(row, unit)
     SetUnitName(row.member, unit, unit)
     row.member:SetTextColor(0.86, 0.92, 1)
     row.target:SetTextColor(1, 1, 1)
     row.targetMarker:Hide()
-    UpdateFocus(row, unit)
     if PublicBoolean(UnitIsConnected, unit) == false then
         row.target:SetText("离线") row.target:SetTextColor(0.55, 0.58, 0.62)
-        row.focus:SetText(db.showFocus and "离线" or "") row.focusMarker:Hide()
         return
     end
     local target = unit == "player" and "target" or unit .. "target"
@@ -154,9 +137,6 @@ function app.RefreshTargets()
             row.member:SetText(entry[1]) row.member:SetTextColor(0.65, 0.75, 0.85)
             row.target:SetText(entry[2]) row.target:SetTextColor(0.95, 0.8, 0.4)
             SetMarker(row.targetMarker, entry[3])
-            row.focus:SetText(db.showFocus and (i == 2 and "约定：星星" or "示例焦点") or "")
-            row.focus:SetTextColor(0.95, 0.8, 0.4)
-            SetMarker(row.focusMarker, db.showFocus and 1 or nil)
         end
     else for i, unit in ipairs(app.units) do UpdateRow(app.rows[i], unit) end end
 end
@@ -168,7 +148,6 @@ local function NewMarker(parent, x)
 end
 local function CreateRow(index)
     local row = CreateFrame("Frame", nil, frame)
-    row:EnableMouse(true)
     row.background = row:CreateTexture(nil, "BACKGROUND")
     row.background:SetAllPoints()
     row.background:SetColorTexture(1, 1, 1, index % 2 == 0 and 0.05 * db.backgroundAlpha or 0)
@@ -179,18 +158,6 @@ local function CreateRow(index)
     row.targetMarker = NewMarker(row, 155)
     row.target = app.NewText(row, "GameFontHighlight")
     row.target:SetPoint("LEFT", 178, 0) row.target:SetWidth(225)
-    row.focusMarker = NewMarker(row, 422)
-    row.focus = app.NewText(row, "GameFontHighlight")
-    row.focus:SetPoint("LEFT", 445, 0) row.focus:SetWidth(178)
-    row:SetScript("OnEnter", function()
-        if not GameTooltip then return end
-        GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-        GameTooltip:SetText("队友目标与焦点通报")
-        GameTooltip:AddLine("黄色名称或标记来自队友最近一次通报。", 1, 1, 1, true)
-        GameTooltip:AddLine("再次通报才会更新；记录保留 5 分钟。", 1, 1, 1, true)
-        GameTooltip:Show()
-    end)
-    row:SetScript("OnLeave", function() if GameTooltip then GameTooltip:Hide() end end)
     app.rows[index] = row
     return row
 end
@@ -206,27 +173,24 @@ function app.RebuildRoster()
         end
     end
     app.units = units
-    ns.Communication.RebuildRoster(units)
     local count = app.preview and #demo or #units
     local columns = count > 20 and 2 or 1
     local perColumn = math.max(1, math.ceil(count / columns))
-    local width = db.showFocus and 650 or 430
+    local width = 430
     frame:SetSize(width * columns, TOP + perColumn * ROW_HEIGHT + BOTTOM)
     for column = 1, 2 do
         local header = headers[column]
         if not header then
-            header = { app.NewText(frame, "GameFontDisableSmall"),
-                app.NewText(frame, "GameFontDisableSmall"), app.NewText(frame, "GameFontDisableSmall") }
+            header = { app.NewText(frame, "GameFontDisableSmall"), app.NewText(frame, "GameFontDisableSmall") }
             headers[column] = header
             header[1]:SetText("队友")
             header[2]:SetText("当前目标")
-            header[3]:SetText("焦点 / 通报")
         end
-        for index, x in ipairs({ 16, 165, 432 }) do
+        for index, x in ipairs({ 16, 165 }) do
             local label = header[index]
             label:ClearAllPoints()
             label:SetPoint("TOPLEFT", x + (column - 1) * width, -68)
-            if column <= columns and (index ~= 3 or db.showFocus) then label:Show() else label:Hide() end
+            if column <= columns then label:Show() else label:Hide() end
         end
     end
     for i = 1, count do
@@ -234,7 +198,6 @@ function app.RebuildRoster()
         local column, rowIndex = math.floor((i - 1) / perColumn), (i - 1) % perColumn
         row:SetSize(width - 20, ROW_HEIGHT) row:ClearAllPoints()
         row:SetPoint("TOPLEFT", 10 + column * width, -TOP - rowIndex * ROW_HEIGHT)
-        if db.showFocus then row.focus:Show() else row.focus:Hide() row.focusMarker:Hide() end
         row:Show()
     end
     for i = count + 1, #app.rows do app.rows[i]:Hide() end
@@ -243,30 +206,18 @@ function app.RebuildRoster()
     lockButton:SetText(db.locked and "解锁" or "锁定")
     if app.preview then footer:SetText("示例数据 · 点击“结束预览”恢复实时监控")
     elseif not IsInGroup() then footer:SetText("未组队 · 当前显示自己的目标")
-    elseif db.showFocus then footer:SetText(#units .. " 名成员 · 黄色：队友最近一次通报")
     else footer:SetText(#units .. " 名成员") end
     app.ApplyVisibility() app.RefreshTargets() app.SyncSettings()
 end
 function app.TogglePreview() app.preview = not app.preview db.hidden = false app.RebuildRoster() end
 function app.Reset()
-    ns.Communication.SetAcceptCalls(false)
-    ns.Communication.ResetDeclarationFormats()
     for key, value in pairs(defaults) do db[key] = value end
     app.preview = false
     app.RestorePosition() app.ApplyAppearance() app.RebuildRoster()
-    -- Reset saved formats without silently saving or replacing an open draft.
-    if app.formatSettings and app.formatSettings:IsShown() then
-        app.formatSettings.status:SetText("已恢复保存的内置格式；此处草稿未保存，关闭后重新打开可查看。")
-    end
 end
 function app.ShowSettings()
     if not app.settings then app.settings = ns.CreateSettings(app) end
     app.settings:Show() app.SyncSettings()
-end
-function app.ShowFormats()
-    if not app.formatSettings then app.formatSettings = ns.CreateFormatSettings(app) end
-    if not app.formatSettings:IsShown() then app.formatSettings.LoadSaved() end
-    app.formatSettings:Show()
 end
 local function NewButton(text, width, left, callback)
     local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -297,7 +248,6 @@ local function HandleCommand(message)
     local command, argument = (message or ""):match("^%s*(%S*)%s*(.-)%s*$")
     command = command:lower()
     if command == "settings" or command == "config" then app.ShowSettings() return
-    elseif command == "formats" then app.ShowFormats() return
     elseif command == "hide" then db.hidden = true
     elseif command == "show" or command == "" then db.hidden = false app.preview = false
     elseif command == "lock" or command == "unlock" then app.SavePosition() db.locked = command == "lock" db.hidden = false
@@ -308,7 +258,7 @@ local function HandleCommand(message)
         if not app.ValidNumber(scale, 0.6, 2) then app.Message("缩放范围：/ptw scale 0.6 到 2") return end
         db.scale = scale app.RestorePosition()
     else
-        app.Message("/ptw settings 设置；formats 接收格式；show 显示；hide 隐藏；unlock 解锁拖动；lock 锁定；test 示例预览；reset 重置；scale 1 缩放。")
+        app.Message("/ptw settings 设置；show 显示；hide 隐藏；unlock 解锁拖动；lock 锁定；test 示例预览；reset 重置；scale 1 缩放。")
         return
     end
     app.RebuildRoster()
@@ -320,7 +270,6 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         if arg1 ~= addonName then return end
         InitializeDB() CreateUI() app.RestorePosition()
         initialized = true
-        ns.Communication.Init(db, function() end)
         ns.InitializeIntegration(app)
         self:UnregisterEvent("ADDON_LOADED")
         for _, name in ipairs({ "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "UNIT_TARGET",

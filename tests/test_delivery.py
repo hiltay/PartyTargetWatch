@@ -63,10 +63,10 @@ class DeliveryTests(unittest.TestCase):
 
     def test_release_zip_exact_contents_and_determinism(self) -> None:
         self.run_tool("package.py")
-        archive_path = self.repo / "dist" / "PartyTargetWatch-0.4.3.zip"
+        archive_path = self.repo / "dist" / "PartyTargetWatch-0.5.0.zip"
         initial = archive_path.read_bytes()
         expected = {f"{ADDON}/{ADDON}.lua", f"{ADDON}/{ADDON}.toc",
-                    f"{ADDON}/Communication.lua", f"{ADDON}/Settings.lua", f"{ADDON}/Integration.lua",
+                    f"{ADDON}/Settings.lua", f"{ADDON}/Integration.lua",
                     f"{ADDON}/README.md", f"{ADDON}/LICENSE", f"{ADDON}/CHANGELOG.md"}
         with zipfile.ZipFile(archive_path) as archive:
             self.assertEqual(set(archive.namelist()), expected)
@@ -90,11 +90,14 @@ class DeliveryTests(unittest.TestCase):
         self.assertIsNone(self.report()["backup_directory"])
         self.assertEqual(self.report()["removed_obsolete_files"], [])
         self.assertFalse((target / "Bindings.xml").exists())
+        self.assertFalse((target / "Communication.lua").exists())
         self.assert_other_addon_unchanged()
         previous_lua = (target / f"{ADDON}.lua").read_bytes()
         (target / "old-local-note.txt").write_text("preserve", encoding="utf-8")
         retired_binding = b'<Bindings><Binding name="PARTYTARGETWATCH_ANNOUNCE">PartyTargetWatch_AnnounceTarget();</Binding></Bindings>\n'
         (target / "Bindings.xml").write_bytes(retired_binding)
+        retired_communication = b"-- Removed focus and chat announcement module.\n"
+        (target / "Communication.lua").write_bytes(retired_communication)
         source = self.repo / ADDON / f"{ADDON}.lua"
         source.write_bytes(previous_lua + b"\n-- Synthetic update fixture.\n")
         self.install()
@@ -103,8 +106,10 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual((backup / f"{ADDON}.lua").read_bytes(), previous_lua)
         self.assertEqual((backup / "old-local-note.txt").read_text(), "preserve")
         self.assertEqual((backup / "Bindings.xml").read_bytes(), retired_binding)
+        self.assertEqual((backup / "Communication.lua").read_bytes(), retired_communication)
         self.assertFalse((target / "Bindings.xml").exists(), "obsolete binding survived the upgrade")
-        self.assertEqual(self.report()["removed_obsolete_files"], ["Bindings.xml"])
+        self.assertFalse((target / "Communication.lua").exists(), "obsolete focus module survived the upgrade")
+        self.assertEqual(self.report()["removed_obsolete_files"], ["Bindings.xml", "Communication.lua"])
         self.assertEqual((target / "old-local-note.txt").read_text(), "preserve")
         self.assertEqual((target / f"{ADDON}.lua").read_bytes(), source.read_bytes())
         self.assertEqual(saved_variables.read_bytes(), saved_content)

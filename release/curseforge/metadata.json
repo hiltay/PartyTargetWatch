@@ -2,7 +2,7 @@
   "name": "PartyTargetWatch",
   "game": "World of Warcraft",
   "flavor": "Retail",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "game_versions": [
     "12.1.0"
   ],
@@ -11,7 +11,7 @@
   "source_url": "https://github.com/hiltay/PartyTargetWatch",
   "issues_url": "https://github.com/hiltay/PartyTargetWatch/issues",
   "recommended_release_type": "beta",
-  "release_type_reason": "Version 0.4.3 changes incoming defaults to exactly two templates. The minimap/native-settings entry points still await in-game verification. The earlier 0.4.0 name/icon display and SeUI custom-format workflow were user-confirmed locally; cross-client chat receipt and combat/Mythic+ behavior remain unverified.",
+  "release_type_reason": "All focus and chat-announcement features have been removed after user-reported Mythic+ failure. Current-target monitoring remains; version 0.5.0 has not been verified in-game.",
   "in_game_ui_locales": [
     "zhCN"
   ],
@@ -30,23 +30,17 @@
   },
   "icon_512_source": "icon-512.png",
   "icon_rights": "Original vector artwork created for PartyTargetWatch, distributed under the MIT License; no third-party game, platform, or addon artwork used.",
-  "archive_relative_path": "../../dist/PartyTargetWatch-0.4.3.zip",
+  "archive_relative_path": "../../dist/PartyTargetWatch-0.5.0.zip",
   "live_verified": [],
   "not_live_verified": [
-    "Version 0.4.2 loading, two-control settings, status text and saved-setting migration after /reload",
-    "Version 0.4.2 minimap left/right clicks, EUI button collection and native Settings AddOns category entry points",
-    "Cross-client name declaration receipt, native two-line macro and complete upgrade preservation of saved templates",
-    "Multiline declaration editor, cursor scrolling, Chinese input and literal pipe preservation",
-    "Draft sample tests, save/cancel boundaries and template persistence",
-    "Background-only opacity and transparent background behavior",
-    "Target raid markers and scene visibility",
-    "Strict chat declaration recording",
-    "Party and raid behavior",
-    "Combat and Mythic+ restriction handling",
-    "Saved-setting persistence"
+    "Version 0.5.0 loading, compact settings and saved-setting migration",
+    "Current-target monitoring in parties, raids, combat and Mythic+",
+    "Target raid markers, scene visibility and background opacity",
+    "Minimap button collection and native Settings category",
+    "Saved-setting persistence after reload"
   ],
-  "compatibility_note": "Enable showFocus and acceptFocusCalls for public chat announcements; senders do not need the addon. Yellow names/markers show the latest announcement, expire in five minutes and require another announcement after changing focus; 取消打断 clears the sender record. Secret messages are ignored. The local player public focus can be displayed read-only. No addon focus protocol is registered, sent or handled, and no normal chat is sent.",
-  "upgrade_note": "The retired shareFocus field is cleared; other switches, templates, position and opacity are preserved. Saved custom or empty template lists are not automatically replaced. New installs, invalid-configuration fallback and restoring built-in formats use the two new defaults. Retaining WTF SavedVariables during reinstall also preserves saved templates. The release contains 8 files and no Bindings.xml.",
+  "compatibility_note": "Displays current targets and raid markers through game-permitted UI APIs. No focus-unit reads, chat listeners, announcement parsing, chat sends or addon messages remain.",
+  "upgrade_note": "Clear shareFocus, showFocus, acceptFocusCalls and declarationFormats on load; preserve other preferences. Replace the addon directory to remove retired Communication.lua and Bindings.xml. Keep WTF/SavedVariables. The release contains 7 files.",
   "publication_status": "prepared",
   "historical_live_verified": {
     "version": "0.1.0",
@@ -58,53 +52,16 @@
       "Updating the player's own selected-target name"
     ]
   },
-  "default_off_controls": [
-    "showFocus",
-    "acceptFocusCalls"
-  ],
-  "chat_declaration_ttl_seconds": 300,
-  "declaration_template_limits": {
-    "nonempty_templates": 20,
-    "bytes_per_template": 255,
-    "total_input_bytes": 8192,
-    "max_mark_placeholders_per_template": 1,
-    "max_name_placeholders_per_template": 1,
-    "required_mark_or_name_placeholder": true,
-    "max_nonempty_text_placeholders_per_template": 2,
-    "cleaned_name_max_bytes": 96,
-    "name_only_requires_literal_text": true,
-    "name_and_text_may_not_be_adjacent": true,
-    "leading_chat_raid_marker_token": "An initial {rt1} through {rt8} in a captured name is extracted as the declaration marker; conflict with explicit %mark rejects the message."
-  },
-  "declaration_default_templates": [
-    "我打断%mark",
-    "我的焦点打断是 {rt%mark} %name"
-  ],
   "background_opacity": {
     "minimum": 0,
     "maximum": 1,
     "default": 0.88,
     "affects": "Background, border and row fills only; text and icons remain visible."
   },
-  "native_focus_macro": "/stopmacro [@focus,noexists]\n/p PTW焦点：%f",
   "current_user_observations": [
-    "Historical 0.4.0: on 2026-09-25 the user confirmed native %f expansion, addon receipt and clean icon/name display after the leading-marker fix, and then confirmed the SeUI custom-format workflow. This does not establish arbitrary third-party addon %f support or cross-client/combat/Mythic+ behavior.",
-    "Version 0.4.3 changes defaults only. The minimap/native-settings entry points introduced in 0.4.2 still await in-game verification."
+    "The user reports that focus-related features fail in Mythic+ and requested their removal. Earlier local name/icon feedback does not establish Mythic+ support."
   ],
-  "focus_settings_labels": {
-    "showFocus": "显示焦点 / 通报列",
-    "acceptFocusCalls": "接收队友的焦点通报"
-  },
   "historical_offline_test_results": {
-    "lua_total_passed": 76,
-    "lua_ui_passed": 39,
-    "lua_communication_passed": 37,
-    "delivery_passed": 7,
-    "delivery_skipped": 1,
-    "skip_reason": "Windows symbolic-link creation permission unavailable (WinError 1314)",
-    "version": "0.4.1"
-  },
-  "offline_test_results": {
     "version": "0.4.3",
     "lua_total_passed": 73,
     "lua_ui_passed": 39,
@@ -114,10 +71,18 @@
     "delivery_skipped": 1,
     "skip_reason": "Windows symbolic-link creation permission unavailable (WinError 1314)"
   },
+  "offline_test_results": {
+    "version": "0.5.0",
+    "lua_total_passed": 27,
+    "lua_ui_passed": 22,
+    "lua_integration_passed": 5,
+    "delivery_passed": 7,
+    "delivery_skipped": 1,
+    "skip_reason": "Windows symbolic-link creation permission unavailable (WinError 1314)"
+  },
   "ui_entry_points": {
     "minimap_button_name": "PartyTargetWatchMinimapButton",
     "left_click": "Open existing settings panel",
-    "right_click": "Open incoming format editor",
     "native_settings_category": "PartyTargetWatch 队友目标",
     "native_settings_api": [
       "Settings.RegisterCanvasLayoutCategory",

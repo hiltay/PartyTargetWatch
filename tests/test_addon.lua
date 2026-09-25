@@ -8,10 +8,7 @@ local function boot(saved)
     local objects, globals = {}, {}
     local state = { group = false, raid = false, count = 0, instanceType = "none", resting = false,
         names = { player = "自己", target = "训练假人" }, offline = {}, errors = {}, secrets = {},
-        markers = {}, focuses = {}, nameCalls = 0, now = 0, secretTypes = {}, existsResults = {},
-        rosterRebuilds = 0, acceptCalls = {}, transmitted = {}, messages = {},
-        formatSaveCalls = {}, formatTestCalls = {}, formatResetCalls = 0, formatClearCalls = 0, scrollingCalls = {},
-        defaultFormats = "我打断%mark\n我负责%mark" }
+        markers = {}, nameCalls = 0, secretTypes = {}, existsResults = {}, messages = {} }
     local methods = {}
     local function object(kind, name, parent)
         local value = { kind = kind, name = name, parent = parent, shown = true,
@@ -91,30 +88,15 @@ local function boot(saved)
     function methods:SetEnabled(value) self.enabled = not not value end
     function methods:Enable() self.enabled = true end
     function methods:Disable() self.enabled = false end
-    function methods:SetScrollChild(value) self.scrollChild = value end
-    function methods:SetVerticalScroll(value) self.verticalScroll = value end
-    function methods:GetVerticalScroll() return self.verticalScroll or 0 end
-    function methods:GetVerticalScrollRange() return math.max(0, (self.scrollChild and self.scrollChild.height or 0) - (self.height or 0)) end
-    function methods:SetMultiLine(value) self.multiLine = value end
     function methods:SetMaxLetters(value) self.maxLetters = value end
-    function methods:SetMaxBytes(value) self.maxBytes = value end
-    function methods:SetAltArrowKeyMode(value) self.altArrowKeyMode = value end
-    function methods:SetCursorPosition(value) self.cursorPosition = value end
-    function methods:SetFocus() self.focused = true end
     function methods:ClearFocus() self.focused = false end
     function methods:EnableMouse(value) self.mouseEnabled = not not value end
-    function methods:GetNumLetters() return #(self.text or "") end
-    function methods:GetNumLines()
-        local _, count = (self.text or ""):gsub("\n", "")
-        return count + 1
-    end
     for _, name in ipairs({ "SetClampedToScreen", "SetMovable", "SetFrameStrata", "SetJustifyH", "SetWordWrap",
         "SetAllPoints", "SetBackdrop",
         "RegisterForDrag", "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetOrientation",
         "SetAutoFocus", "SetFrameLevel", "SetJustifyV", "RegisterForClicks",
         "SetNormalTexture", "SetPushedTexture", "SetHighlightTexture", "SetDisabledTexture", "SetFontObject",
-        "SetTextInsets", "SetNumeric", "EnableMouseWheel", "SetResizable", "SetResizeBounds",
-        "UpdateScrollChildRect", "HighlightText", "SetCountInvisibleLetters" }) do methods[name] = function() end end
+        "SetTextInsets", "SetNumeric" }) do methods[name] = function() end end
 
     local env = setmetatable({ PartyTargetWatchDB = saved, SlashCmdList = {}, UISpecialFrames = {},
         print = function(message) state.messages[#state.messages + 1] = message end }, { __index = _G })
@@ -139,7 +121,6 @@ local function boot(saved)
     env.GetNumSubgroupMembers = function() return state.count end
     env.IsInInstance = function() return state.instanceType ~= "none", state.instanceType end
     env.IsResting = function() return state.resting end
-    env.GetTime = function() return state.now end
     env.UnitName = function(unit)
         state.nameCalls = state.nameCalls + 1
         if state.errors[unit] then error("simulated unavailable unit") end
@@ -151,8 +132,6 @@ local function boot(saved)
         return state.names[unit] ~= nil
     end
     env.UnitIsConnected = function(unit) return not state.offline[unit] end
-    env.UnitFullName = env.UnitName
-    env.UnitIsUnit = function(left, right) return left == right end
     env.issecretvalue = function(value) return type(value) == "table" and state.secrets[value] == true end
     -- A table can stand in for an engine secret number only at the mocked type
     -- boundary. Arithmetic metamethods then detect Lua operations on that value.
@@ -165,52 +144,11 @@ local function boot(saved)
     env.SetCVar = function() error("must not change CVars") end
     env.SetBinding = function() error("must not change keybindings") end
     env.SaveBindings = function() error("must not save keybindings") end
-    env.SendChatMessage = function(...) state.transmitted[#state.transmitted + 1] = { ... } end
-    env.C_ChatInfo = { SendChatMessage = env.SendChatMessage }
-    for _, name in ipairs({ "ScrollingEdit_OnLoad", "ScrollingEdit_OnCursorChanged", "ScrollingEdit_OnTextChanged", "ScrollingEdit_OnUpdate" }) do
-        local handlerName = name
-        env[handlerName] = function(...)
-            state.scrollingCalls[#state.scrollingCalls + 1] = { name = handlerName, args = { ... } }
-        end
-    end
     local namespace = {}
-    local communication = {
-        Init = function(db, onChanged) state.commDB, state.onChanged = db, onChanged end,
-        RebuildRoster = function() state.rosterRebuilds = state.rosterRebuilds + 1 end,
-        GetFocus = function(unit) return state.focuses[unit] or { state = "pending" } end,
-        SetAcceptCalls = function(value)
-            if state.commDB.acceptFocusCalls == value then return end
-            state.acceptCalls[#state.acceptCalls + 1] = value
-            state.commDB.acceptFocusCalls = value
-        end,
-        GetDefaultDeclarationFormats = function() return state.defaultFormats end,
-        GetDeclarationFormats = function() return state.commDB.declarationFormats or state.defaultFormats end,
-        SetDeclarationFormats = function(text)
-            state.formatSaveCalls[#state.formatSaveCalls + 1] = text
-            if state.formatSaveError then return false, state.formatSaveError end
-            state.commDB.declarationFormats = state.formatSaveCanonical or text
-            state.formatClearCalls = state.formatClearCalls + 1
-            for unit, focus in pairs(state.focuses) do
-                if focus.state == "declared" then state.focuses[unit] = nil end
-            end
-            return true
-        end,
-        ResetDeclarationFormats = function()
-            state.formatResetCalls = state.formatResetCalls + 1
-            state.commDB.declarationFormats = nil
-            state.formatClearCalls = state.formatClearCalls + 1
-            return state.defaultFormats
-        end,
-        TestDeclarationMessage = function(message, draft)
-            state.formatTestCalls[#state.formatTestCalls + 1] = { message = message, draft = draft }
-            return state.formatTestMarker, state.formatTestLineOrError, state.formatTestName
-        end,
-    }
     for _, module in ipairs(ADDON_SOURCES) do
         local chunk = assert(loadstring(module.source, "@" .. module.name))
         setfenv(chunk, env)
         chunk("PartyTargetWatch", namespace)
-        if module.name == "Communication.lua" then namespace.Communication = communication end
     end
     local app = { state = state, env = env, globals = globals, objects = objects,
         frame = globals.PartyTargetWatchFrame, namespace = namespace }
@@ -220,18 +158,11 @@ local function boot(saved)
         end
     end
     function app:tick(elapsed)
-        state.now = state.now + elapsed
         for _, value in ipairs(objects) do
             if value:IsVisible() and value.scripts.OnUpdate then value.scripts.OnUpdate(value, elapsed) end
         end
     end
     function app:command(command) self.env.SlashCmdList.PARTYTARGETWATCH(command) end
-    function app:edit(name, text)
-        local box = assert(self.globals[name], "missing editor: " .. name)
-        assert(box:IsVisible(), "editor is not visible: " .. name)
-        box.text = text
-        if box.scripts.OnTextChanged then box.scripts.OnTextChanged(box, true) end
-    end
     function app:rows()
         local result = {}
         for _, child in ipairs(objects) do
@@ -276,7 +207,6 @@ tests["initialization ignores unrelated addons, solo monitor is visible"] = func
     equal(#a:rows(), 1)
     equal(a:rows()[1].target.text, "训练假人")
     local count = #a.objects; a:load(); equal(#a.objects, count)
-    assert(a.state.commDB == a.env.PartyTargetWatchDB, "shared DB not passed to communication")
 end
 tests["party target changes and clears via events, missed events poll"] = function()
     local a = boot(); a:load()
@@ -306,13 +236,14 @@ tests["offline and unavailable targets cannot leave stale text"] = function()
     equal(a:rows()[1].target.text, "不可用")
 end
 tests["40-member raid has two columns without extra player; leaving shrinks"] = function()
-    local a = boot(); a:load()
+    local a = boot({ showFocus = true }); a:load()
     a.state.raid, a.state.count = true, 40
     for i = 1, 40 do a.state.names["raid" .. i] = "R" .. i; a.state.names["raid" .. i .. "target"] = "T" .. i end
     a:event("GROUP_ROSTER_UPDATE")
     equal(#a:rows(), 40)
     for i, row in ipairs(a:rows()) do equal(row.member.text, "R" .. i); equal(row.target.text, "T" .. i) end
     local raidWidth = a.frame.width
+    equal(raidWidth, 860, "retired focus setting must not widen the raid layout")
     a.state.raid, a.state.count = false, 0; a:event("GROUP_ROSTER_UPDATE")
     equal(#a:rows(), 1); equal(a:rows()[1].member.text, "自己")
     assert(a.frame.width < raidWidth, "solo layout did not collapse raid columns")
@@ -348,30 +279,30 @@ tests["position, scale and lock persist without modifying global UI"] = function
     b:command("scale 900"); equal(b.frame.scale, 1.25)
     b:command("reset"); equal(b.frame.scale, 1); equal(b.env.PartyTargetWatchDB.locked, false)
 end
-tests["saved settings normalize corruption and remove retired sync without losing preferences"] = function()
+tests["saved settings normalize corruption and remove retired focus settings without losing preferences"] = function()
+    local retired = { "showFocus", "shareFocus", "acceptFocusCalls", "declarationFormats" }
     for _, saved in ipairs({ 1, "broken", { point = "INVALID", relativePoint = false, x = 0/0,
         y = math.huge, scale = -100, hidden = "bad", locked = {},
-        showFocus = "yes", shareFocus = {}, showWorld = "no", acceptFocusCalls = 1 } }) do
+        showFocus = "yes", shareFocus = {}, showWorld = "no", acceptFocusCalls = 1, declarationFormats = {} } }) do
         local a = boot(saved); a:load()
         equal(a.frame.shown, true); equal(a.frame.scale, 1)
         equal(a.env.PartyTargetWatchDB.point, "CENTER")
-        equal(a.env.PartyTargetWatchDB.showFocus, false)
-        equal(a.env.PartyTargetWatchDB.shareFocus, nil)
-        equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
+        for _, key in ipairs(retired) do equal(a.env.PartyTargetWatchDB[key], nil, key) end
         for _, key in ipairs({ "showWorld", "showResting", "showDungeon", "showRaid", "showScenario", "showBattleground", "showArena" }) do
             equal(a.env.PartyTargetWatchDB[key], true, key)
         end
     end
-    local formats = "我的焦点打断是 {rt%mark} %name"
     local a = boot({ shareFocus = true, showFocus = true, acceptFocusCalls = true,
-        declarationFormats = formats, backgroundAlpha = 0.3, scale = 1.25, locked = true })
+        declarationFormats = "我的焦点打断是 {rt%mark} %name", backgroundAlpha = 0.3,
+        scale = 1.25, locked = true, x = 150, y = -80, showRaid = false })
     a:load()
-    equal(a.env.PartyTargetWatchDB.shareFocus, nil, "retired sync setting was not removed")
-    equal(a.env.PartyTargetWatchDB.showFocus, true)
-    equal(a.env.PartyTargetWatchDB.acceptFocusCalls, true)
-    equal(a.env.PartyTargetWatchDB.declarationFormats, formats)
+    for _, key in ipairs(retired) do equal(a.env.PartyTargetWatchDB[key], nil, key) end
     equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0.3)
     equal(a.frame.scale, 1.25); equal(a.env.PartyTargetWatchDB.locked, true)
+    equal(a.env.PartyTargetWatchDB.x, 150); equal(a.env.PartyTargetWatchDB.y, -80)
+    equal(a.env.PartyTargetWatchDB.showRaid, false)
+    a:command("reset")
+    for _, key in ipairs(retired) do equal(a.env.PartyTargetWatchDB[key], nil, key) end
 end
 tests["secret name objects reach SetText unchanged"] = function()
     local a = boot()
@@ -452,18 +383,6 @@ tests["preview bypasses scene filters and explicit hide still wins"] = function(
     a:command("show"); equal(a.frame.shown, false)
     a:scenario("party", false); equal(a.frame.shown, true); equal(#a:rows(), 1)
 end
-tests["focus column and declaration options use settings callbacks"] = function()
-    local a = boot(); a.state.focuses.player = { state = "ok", name = "真实焦点", marker = 4 }
-    a:load(); equal(a:rows()[1].focus.shown, false)
-    a:command("settings"); a:click("显示焦点 / 通报列"); a:tick(0.21)
-    equal(a.env.PartyTargetWatchDB.showFocus, true); equal(a:rows()[1].focus.shown, true)
-    equal(a:rows()[1].focus.text, "真实焦点")
-    a:click("接收队友的焦点通报"); equal(a.env.PartyTargetWatchDB.acceptFocusCalls, true)
-    equal(a.state.acceptCalls[#a.state.acceptCalls], true)
-    a:click("接收队友的焦点通报"); equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
-    equal(a.state.acceptCalls[#a.state.acceptCalls], false)
-    a:click("显示焦点 / 通报列"); equal(a:rows()[1].focus.shown, false)
-end
 tests["public target markers update through eight values and clear"] = function()
     local a = boot(); a.state.markers.target = 1; a:load()
     local icon = a:rows()[1].targetMarker
@@ -491,37 +410,6 @@ tests["secret marker sentinel is passed to native setter without Lua arithmetic"
     icon.SetSpriteSheetCell = function() error("simulated native rendering refusal") end
     a:tick(0.21)
     equal(icon.shown, false, "native rendering refusal left stale icon")
-end
-tests["focus status changes cannot leave old names or marker icons"] = function()
-    local a = boot({ showFocus = true }); a:load()
-    for _, state in ipairs({ "none", "pending", "restricted", "unavailable", "disabled" }) do
-        a.state.focuses.player = { state = "ok", name = "之前的焦点", marker = 8 }; a:tick(0.21)
-        equal(a:rows()[1].focus.text, "之前的焦点")
-        a.state.focuses.player = { state = state }; a:tick(0.21)
-        assert(a:rows()[1].focus.text ~= "之前的焦点", "stale focus name for " .. state)
-        local icon = a:rows()[1].focusMarker
-        assert(not icon.shown or icon.texture == nil, "stale focus icon for " .. state)
-    end
-    equal(a:rows()[1].focus.text, "未开启接收")
-    a:command("settings"); a:click("接收队友的焦点通报")
-    -- The communication mock supplies each state; its reception lifecycle is
-    -- covered separately by the real Communication.lua tests.
-    a.state.focuses.player = { state = "pending" }; a:tick(0.21)
-    equal(a:rows()[1].focus.text, "等待通报")
-    a.state.focuses.player = { state = "declared", name = "训练假人", hasDeclaredName = true }; a:tick(0.21)
-    equal(a:rows()[1].focus.text, "训练假人")
-    a.state.focuses.player = { state = "disabled" }
-    a:click("接收队友的焦点通报"); a:tick(0.21)
-    equal(a:rows()[1].focus.text, "未开启接收")
-end
-tests["reset lets communication setters observe active settings before defaulting"] = function()
-    local a = boot({ acceptFocusCalls = true, declarationFormats = "自定义通报%name" }); a:load()
-    a:command("settings"); a:click("恢复默认")
-    equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
-    equal(a.state.acceptCalls[#a.state.acceptCalls], false, "reset skipped declaration transition")
-    equal(a:button("接收队友的焦点通报"):GetChecked(), false)
-    equal(a.state.formatResetCalls, 1)
-    equal(a.namespace.Communication.GetDeclarationFormats(), a.state.defaultFormats)
 end
 tests["scene checkboxes immediately hide recover and stay synchronized after reset"] = function()
     local a = boot(); a:load(); a:command("settings")
@@ -558,179 +446,6 @@ tests["title drag saves position and lock prevents movement"] = function()
     a:command("lock"); handle.scripts.OnDragStart(handle); equal(a.frame.moving, false)
     a:command("unlock"); handle.scripts.OnDragStart(handle); equal(a.frame.moving, true)
 end
-tests["own readable focus and teammates chat declarations use the matching member token"] = function()
-    local a = boot({ showFocus = true, acceptFocusCalls = true }); a:load()
-    a.state.group, a.state.count = true, 2
-    a.state.names.party1, a.state.names.party2 = "名称通报队员", "标记通报队员"
-    a.state.focuses.player = { state = "ok", name = "本地焦点", marker = 8 }
-    a.state.focuses.party1 = { state = "declared", name = "队友通报的怪物", marker = 4, hasDeclaredName = true }
-    a.state.focuses.party2 = { state = "declared", name = "星星", marker = 1 }
-    a:event("GROUP_ROSTER_UPDATE"); a:tick(0.21)
-    equal(a:rows()[1].focus.text, "本地焦点")
-    equal(a:rows()[2].focus.text, "队友通报的怪物")
-    local declaration = a:rows()[3].focus.text
-    assert(type(declaration) == "string" and declaration:find("星星", 1, true), "missing declared focus marker")
-    assert(declaration:find("约定", 1, true) or declaration:find("声明", 1, true),
-        "declaration is not distinguished from a real focus")
-end
-tests["format editor opens from settings or slash without saving drafts"] = function()
-    local original = "第一路我打断%mark\n第二路我打断%mark"
-    local a = boot({ declarationFormats = original }); a:load(); a:command("hide"); a:command("settings")
-    a:click("接收格式…")
-    local panel, input = a.globals.PartyTargetWatchFormatSettings, a.globals.PartyTargetWatchFormatsInput
-    equal(panel:IsVisible(), true); equal(input:GetText(), original); equal(input.multiLine, true)
-    equal(input.cursorPosition, 0, "loading formats must reveal the beginning")
-    a:edit("PartyTargetWatchFormatsInput", "草稿我打断%mark")
-    input:SetCursorPosition(100)
-    equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
-    a:click("关闭"); equal(panel.shown, false)
-    equal(a.env.PartyTargetWatchDB.declarationFormats, original)
-    a:command("formats"); equal(panel:IsVisible(), true); equal(input:GetText(), original)
-    equal(input.cursorPosition, 0, "reopening must reset the old cursor position")
-    equal(#a.state.formatSaveCalls, 0); equal(#a.state.transmitted, 0)
-end
-tests["format drafts survive main settings sync roster and scene updates"] = function()
-    local original, draft = "已有格式%mark", "还未保存%mark\n另一个草稿%mark"
-    local a = boot({ declarationFormats = original }); a:load(); a:command("settings"); a:command("formats")
-    a:edit("PartyTargetWatchFormatsInput", draft)
-    a:edit("PartyTargetWatchFormatSample", "还未保存星星")
-    a.namespace.App.SyncSettings()
-    a:command("formats")
-    a:event("GROUP_ROSTER_UPDATE")
-    a:scenario("party", false, "ZONE_CHANGED_NEW_AREA")
-    a:scenario("none", true, "PLAYER_UPDATE_RESTING")
-    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), draft)
-    equal(a.globals.PartyTargetWatchFormatSample:GetText(), "还未保存星星")
-    equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
-end
-tests["format save rejection preserves active formats declarations and draft"] = function()
-    local original, draft = "现有格式%mark", "无占位符的无效格式"
-    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
-    a.state.focuses.party1 = { state = "declared", name = "星星", marker = 1 }
-    a.state.formatSaveError = "第1行：必须包含一个%mark占位符。"
-    a:edit("PartyTargetWatchFormatsInput", draft); a:click("保存格式")
-    equal(a.state.formatSaveCalls[1], draft)
-    equal(a.env.PartyTargetWatchDB.declarationFormats, original)
-    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), draft)
-    equal(a.state.focuses.party1.state, "declared"); equal(a.state.formatClearCalls, 0)
-    assert(a.globals.PartyTargetWatchFormatSettings.status:GetText():find(a.state.formatSaveError, 1, true),
-        "save failure must show the validation reason")
-end
-tests["twenty format lines save atomically persist and clear old declarations"] = function()
-    local a = boot({ declarationFormats = "旧格式%mark" }); a:load(); a:command("formats")
-    local lines = {}
-    for i = 1, 20 do lines[i] = "interrupt-route-" .. i .. "-%mark" end
-    local formats = table.concat(lines, "\n")
-    local input = a.globals.PartyTargetWatchFormatsInput
-    assert(not input.maxLetters or input.maxLetters == 0 or input.maxLetters >= #formats,
-        "editor maximum length cannot accommodate twenty ordinary format lines")
-    a.state.focuses.party1 = { state = "declared", name = "月亮", marker = 5 }
-    a:edit("PartyTargetWatchFormatsInput", formats); a:click("保存格式")
-    equal(#a.state.formatSaveCalls, 1); equal(a.state.formatSaveCalls[1], formats)
-    equal(a.env.PartyTargetWatchDB.declarationFormats, formats)
-    equal(a.state.focuses.party1, nil); equal(a.state.formatClearCalls, 1)
-    equal(#a.state.transmitted, 0)
-    local b = boot(a.env.PartyTargetWatchDB); b:load(); b:command("formats")
-    equal(b.globals.PartyTargetWatchFormatsInput:GetText(), formats)
-end
-tests["format matching previews unsaved drafts and shows marker line or failure"] = function()
-    local original, draft = "原格式%mark", "第一行%mark\n第二行%mark"
-    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
-    a:edit("PartyTargetWatchFormatsInput", draft); a:edit("PartyTargetWatchFormatSample", "第二行三角")
-    a.state.formatTestMarker, a.state.formatTestLineOrError = 4, 2
-    a:click("测试匹配")
-    equal(#a.state.formatTestCalls, 1)
-    equal(a.state.formatTestCalls[1].message, "第二行三角"); equal(a.state.formatTestCalls[1].draft, draft)
-    local status = a.globals.PartyTargetWatchFormatSettings.status:GetText()
-    assert(status:find("三角", 1, true) and status:find("第%s*2%s*条格式"), "preview omitted marker or source format index")
-    a.state.formatTestMarker, a.state.formatTestLineOrError = nil, "没有匹配的格式。"
-    a:edit("PartyTargetWatchFormatSample", "无匹配消息"); a:click("测试匹配")
-    assert(a.globals.PartyTargetWatchFormatSettings.status:GetText():find("没有匹配的格式。", 1, true),
-        "failed test must replace the prior successful status")
-    equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
-    equal(a.state.formatClearCalls, 0); equal(#a.state.transmitted, 0)
-end
-tests["restore built-in formats changes only draft until save"] = function()
-    local original = "私人格式%mark"
-    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
-    a:edit("PartyTargetWatchFormatsInput", "未存草稿%mark"); a:click("恢复内置格式")
-    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), a.state.defaultFormats)
-    equal(a.env.PartyTargetWatchDB.declarationFormats, original)
-    equal(#a.state.formatSaveCalls, 0); equal(a.state.formatResetCalls, 0); equal(a.state.formatClearCalls, 0)
-    a:click("关闭"); a:command("formats")
-    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), original)
-    a:click("恢复内置格式"); a:click("保存格式")
-    equal(a.env.PartyTargetWatchDB.declarationFormats, a.state.defaultFormats)
-    equal(a.state.formatClearCalls, 1)
-end
-tests["global reset resets saved declaration formats through communication"] = function()
-    local a = boot({ declarationFormats = "原先自定义%mark" }); a:load(); a:command("formats")
-    a:edit("PartyTargetWatchFormatsInput", "新的未存草稿%mark"); a:command("reset")
-    equal(a.state.formatResetCalls, 1); equal(a.state.formatClearCalls, 1)
-    equal(a.namespace.Communication.GetDeclarationFormats(), a.state.defaultFormats)
-    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), "新的未存草稿%mark")
-    if a.globals.PartyTargetWatchFormatSettings:IsShown() then a:click("关闭") end
-    a:command("formats")
-    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), a.state.defaultFormats)
-    equal(#a.state.formatSaveCalls, 0)
-end
-tests["literal pipes in format drafts and test messages round trip unchanged"] = function()
-    local original = "前|后%mark\n包含||双线%mark"
-    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
-    local input = a.globals.PartyTargetWatchFormatsInput
-    equal(input:GetText(), (original:gsub("|", "||")), "load must escape pipe markup")
-    a:click("保存格式")
-    equal(a.state.formatSaveCalls[1], original); equal(a.env.PartyTargetWatchDB.declarationFormats, original)
-    a:click("关闭"); a:command("formats")
-    equal(input:GetText(), (original:gsub("|", "||")))
-    local draft, message = "甲|乙%mark\n丙||丁%mark", "甲|乙三角"
-    a:edit("PartyTargetWatchFormatsInput", (draft:gsub("|", "||")))
-    a:edit("PartyTargetWatchFormatSample", (message:gsub("|", "||")))
-    a.state.formatTestMarker, a.state.formatTestLineOrError = 4, 1
-    a:click("测试匹配")
-    equal(a.state.formatTestCalls[1].message, message); equal(a.state.formatTestCalls[1].draft, draft)
-    a:click("保存格式")
-    equal(a.state.formatSaveCalls[2], draft); equal(a.env.PartyTargetWatchDB.declarationFormats, draft)
-    equal(#a.state.transmitted, 0)
-end
-tests["successful format save reloads normalized text without losing literal pipes"] = function()
-    local a = boot(); a:load(); a:command("formats")
-    local raw, canonical = "  原|格式%mark  \n\n 第二||格式%mark ", "原|格式%mark\n第二||格式%mark"
-    a.state.formatSaveCanonical = canonical
-    a:edit("PartyTargetWatchFormatsInput", (raw:gsub("|", "||"))); a:click("保存格式")
-    equal(a.state.formatSaveCalls[1], raw, "UI must let the parser normalize original input")
-    equal(a.env.PartyTargetWatchDB.declarationFormats, canonical)
-    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), (canonical:gsub("|", "||")))
-end
-tests["format edit box delegates scrolling to native handlers"] = function()
-    local a = boot({ declarationFormats = "" }); a:load(); a:command("formats")
-    local input = a.globals.PartyTargetWatchFormatsInput
-    local scroll = input.parent
-    equal(input:GetText(), ""); equal(scroll.mouseEnabled, true)
-    assert(scroll.scripts.OnMouseDown, "empty scroll area needs a focus handler")
-    scroll.scripts.OnMouseDown(scroll, "LeftButton")
-    equal(input.focused, true, "clicking blank editor space should focus the empty input")
-    a:edit("PartyTargetWatchFormatsInput", "第一条%mark\n第二条%mark")
-    assert(input.scripts.OnCursorChanged, "missing cursor scrolling handler")
-    input.scripts.OnCursorChanged(input, 4, -300, 1, 14)
-    a:tick(0.016)
-    local called = {}
-    for _, call in ipairs(a.state.scrollingCalls) do
-        if call.args[1] == input then
-            called[call.name] = true
-            if call.name == "ScrollingEdit_OnTextChanged" then
-                assert(call.args[2] == input.parent, "text handler received userInput instead of its ScrollFrame")
-            elseif call.name == "ScrollingEdit_OnUpdate" then
-                assert(call.args[3] == input.parent, "update handler is missing its ScrollFrame")
-            end
-        end
-    end
-    for _, name in ipairs({ "ScrollingEdit_OnLoad", "ScrollingEdit_OnTextChanged", "ScrollingEdit_OnCursorChanged", "ScrollingEdit_OnUpdate" }) do
-        assert(called[name], "editor did not delegate to " .. name)
-    end
-    -- Geometry is deliberately not simulated: native text layout and scrolling
-    -- still require game-client verification, even when callbacks are correct.
-end
 tests["background alpha zero persists and only affects background layers"] = function()
     local a = boot({ backgroundAlpha = 0 }); a:load(); a:command("settings")
     equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0); equal(a.frame.backdropColor[4], 0)
@@ -763,69 +478,35 @@ tests["background alpha invalid values and global reset restore default"] = func
     equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0.88); equal(a.frame.backdropColor[4], 0.88)
     equal(a.globals.PartyTargetWatchBackgroundAlphaSlider:GetValue(), 0.88)
 end
-tests["chat names render directly in declaration color and marker-only updates clear the name"] = function()
-    local a = boot({ showFocus = true, acceptFocusCalls = true }); a:load()
-    a.state.group, a.state.count, a.state.names.party1 = true, 1, "声明队员"
-    a.state.focuses.party1 = { state = "declared", name = "光耀施法者", hasDeclaredName = true }
-    a:event("GROUP_ROSTER_UPDATE"); a:tick(0.21)
-    local row = a:rows()[2]
-    equal(row.focus:GetText(), "光耀施法者")
-    equal(row.focus.color[1], 1); equal(row.focus.color[2], 0.8)
-    equal(row.focusMarker:IsShown(), false)
-    a.state.focuses.party1 = { state = "declared", name = "多刺的迅叶龙", marker = 4, hasDeclaredName = true }
-    a:tick(0.21)
-    equal(row.focus:GetText(), "多刺的迅叶龙"); equal(row.focusMarker:IsShown(), true)
-    a.state.focuses.party1 = { state = "declared", name = "三角", marker = 4 }
-    a:tick(0.21)
-    equal(row.focus:GetText(), "约定：三角"); equal(row.focusMarker:IsShown(), true)
-    a.state.focuses.party1 = { state = "none" }; a:tick(0.21)
-    equal(row.focus:GetText(), "无焦点"); equal(row.focusMarker:IsShown(), false)
-    equal(#a.state.transmitted, 0)
-end
-tests["name template shortcut appends draft once and requires an explicit save"] = function()
-    local original = "私人格式%mark"
-    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
-    a:click("加入名称格式")
-    local input = a.globals.PartyTargetWatchFormatsInput
-    equal(input:GetText(), original .. "\nPTW焦点：%name")
-    equal(a.globals.PartyTargetWatchFormatSample:GetText(), "PTW焦点：训练假人")
-    a:click("加入名称格式")
-    equal(input:GetText(), original .. "\nPTW焦点：%name")
-    equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
-    a:click("关闭"); a:command("formats"); equal(input:GetText(), original)
-    a:click("加入名称格式"); a:click("保存格式")
-    equal(a.env.PartyTargetWatchDB.declarationFormats, original .. "\nPTW焦点：%name")
-    equal(#a.state.formatSaveCalls, 1); equal(#a.state.transmitted, 0)
-end
-tests["name-only and marked-name draft previews show names without saving or sending"] = function()
-    local a = boot(); a:load(); a:command("formats")
-    a:edit("PartyTargetWatchFormatsInput", "PTW焦点：%name")
-    a:edit("PartyTargetWatchFormatSample", "PTW焦点：训练假人")
-    a.state.formatTestMarker, a.state.formatTestLineOrError, a.state.formatTestName = nil, 1, "训练假人"
-    a:click("测试匹配")
-    local status = a.globals.PartyTargetWatchFormatSettings.status:GetText()
-    assert(status:find("训练假人", 1, true) and status:find("第 1 条", 1, true))
-    a.state.formatTestMarker = 4; a:click("测试匹配")
-    status = a.globals.PartyTargetWatchFormatSettings.status:GetText()
-    assert(status:find("训练假人（三角）", 1, true))
-    equal(#a.state.formatSaveCalls, 0); equal(a.state.formatClearCalls, 0); equal(#a.state.transmitted, 0)
-end
-tests["monitor has no announcement button row action or keybinding entry point"] = function()
+tests["monitor has no focus chat listener format editor or announcement entry point"] = function()
     local a = boot(); a:load()
     a.state.group, a.state.count, a.state.names.party1 = true, 1, "Member"
     a:event("GROUP_ROSTER_UPDATE")
     equal(a.env.PartyTargetWatch_AnnounceTarget, nil)
     equal(a.env.BINDING_NAME_PARTYTARGETWATCH_ANNOUNCE, nil)
     equal(a.namespace.App.Announce, nil)
+    equal(a.namespace.Communication, nil)
+    equal(a.namespace.App.ShowFormats, nil)
+    for _, object in ipairs(a.objects) do
+        for event in pairs(object.events) do
+            assert(not event:find("CHAT_MSG", 1, true), "retired chat listener: " .. event)
+            assert(not event:find("FOCUS", 1, true), "retired focus listener: " .. event)
+        end
+    end
     for _, row in ipairs(a:rows()) do
         equal(row.scripts.OnClick, nil, "member row must not announce on click")
+        equal(row.focus, nil); equal(row.focusMarker, nil)
     end
     local found = pcall(function() return a:button("通报目标") end)
     equal(found, false, "removed announcement control is still present")
-    for _, command in ipairs({ "announce", "call", "status" }) do a:command(command) end
+    for _, command in ipairs({ "announce", "call", "status", "formats" }) do a:command(command) end
+    equal(a.globals.PartyTargetWatchFormatSettings, nil)
+    a:command("settings")
+    equal(a.globals.PartyTargetWatchFormatSettings, nil)
     a:command("test")
-    for _, row in ipairs(a:rows()) do equal(row.scripts.OnClick, nil) end
-    equal(#a.state.transmitted, 0)
+    for _, row in ipairs(a:rows()) do
+        equal(row.scripts.OnClick, nil); equal(row.focus, nil); equal(row.focusMarker, nil)
+    end
 end
 local count, names, failures = 0, {}, {}
 for name in pairs(tests) do names[#names + 1] = name end

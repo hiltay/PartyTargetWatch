@@ -16,7 +16,7 @@ import uuid
 from package import ADDON, REPO, regular_files, reject_links, release_payload
 
 # These files belonged to removed addon features and must not survive an upgrade.
-RETIRED_FILES = ("Bindings.xml",)
+RETIRED_FILES = ("Bindings.xml", "Communication.lua")
 
 
 def sha256(path: Path) -> str:

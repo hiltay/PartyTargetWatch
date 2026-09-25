@@ -18,7 +18,7 @@ local function CreateMinimapButton(app)
     button:SetSize(32, 32)
     button:SetFrameStrata("MEDIUM")
     button:SetPoint("TOPRIGHT", Minimap, "TOPRIGHT", 6, 6)
-    button:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    button:RegisterForClicks("LeftButtonUp")
     button:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
     local border = button:CreateTexture(nil, "OVERLAY")
@@ -35,15 +35,13 @@ local function CreateMinimapButton(app)
     -- Minimap collectors may reparent, resize and anchor the button and icon.
     -- Keep all positioning here; never restore it from OnShow or OnUpdate.
     button:SetScript("OnClick", function(_, mouseButton)
-        if mouseButton == "RightButton" then OpenWindow(app.ShowFormats)
-        elseif mouseButton == "LeftButton" then OpenWindow(app.ShowSettings) end
+        if mouseButton == "LeftButton" then OpenWindow(app.ShowSettings) end
     end)
     button:SetScript("OnEnter", function(self)
         if not GameTooltip then return end
         GameTooltip:SetOwner(self, "ANCHOR_LEFT")
         GameTooltip:SetText(TITLE)
         GameTooltip:AddLine("左键：打开插件设置", 1, 1, 1)
-        GameTooltip:AddLine("右键：编辑接收格式", 1, 1, 1)
         GameTooltip:Show()
     end)
     button:SetScript("OnLeave", function()
@@ -65,7 +63,7 @@ local function RegisterSettingsCategory(app)
     description:SetPoint("TOPLEFT", 16, -50)
     description:SetPoint("TOPRIGHT", -16, -50)
     description:SetJustifyH("LEFT")
-    description:SetText("监控队友的当前目标，并接收聊天中的焦点通报。\n使用下方按钮调整显示、背景透明度和接收格式，也可输入 /ptw settings。")
+    description:SetText("监控队友的当前目标。\n使用下方按钮调整显示场景、窗口大小、背景透明度和位置，也可输入 /ptw settings。")
 
     local function Button(text, y, callback)
         local button = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
@@ -75,7 +73,6 @@ local function RegisterSettingsCategory(app)
         button:SetScript("OnClick", function() OpenWindow(callback) end)
     end
     Button("打开设置", -115, app.ShowSettings)
-    Button("编辑接收格式", -155, app.ShowFormats)
     settingsCategory = Settings.RegisterCanvasLayoutCategory(panel, TITLE)
     Settings.RegisterAddOnCategory(settingsCategory)
     return true
