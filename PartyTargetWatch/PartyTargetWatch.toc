@@ -4,7 +4,7 @@
 ## Notes: Group targets, raid markers, and customizable focus announcements received from chat.
 ## Notes-zhCN: 队友目标与标记、自定义焦点通报接收；输入 /ptw settings 设置。
 ## Author: PartyTargetWatch contributors
-## Version: 0.4.2
+## Version: 0.4.3
 ## SavedVariables: PartyTargetWatchDB
 ## IconTexture: Interface\Icons\Ability_Hunter_SniperShot
 

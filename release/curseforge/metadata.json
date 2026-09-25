@@ -2,7 +2,7 @@
   "name": "PartyTargetWatch",
   "game": "World of Warcraft",
   "flavor": "Retail",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "game_versions": [
     "12.1.0"
   ],
@@ -11,7 +11,7 @@
   "source_url": "https://github.com/hiltay/PartyTargetWatch",
   "issues_url": "https://github.com/hiltay/PartyTargetWatch/issues",
   "recommended_release_type": "beta",
-  "release_type_reason": "Version 0.4.2 removes addon-to-addon focus synchronization and adds minimap/native-settings entry points. The version and both entry points await in-game verification. The earlier 0.4.0 name/icon display and SeUI custom-format workflow were user-confirmed locally; cross-client chat receipt and combat/Mythic+ behavior remain unverified.",
+  "release_type_reason": "Version 0.4.3 changes incoming defaults to exactly two templates. The minimap/native-settings entry points still await in-game verification. The earlier 0.4.0 name/icon display and SeUI custom-format workflow were user-confirmed locally; cross-client chat receipt and combat/Mythic+ behavior remain unverified.",
   "in_game_ui_locales": [
     "zhCN"
   ],
@@ -30,7 +30,7 @@
   },
   "icon_512_source": "icon-512.png",
   "icon_rights": "Original vector artwork created for PartyTargetWatch, distributed under the MIT License; no third-party game, platform, or addon artwork used.",
-  "archive_relative_path": "../../dist/PartyTargetWatch-0.4.2.zip",
+  "archive_relative_path": "../../dist/PartyTargetWatch-0.4.3.zip",
   "live_verified": [],
   "not_live_verified": [
     "Version 0.4.2 loading, two-control settings, status text and saved-setting migration after /reload",
@@ -46,7 +46,7 @@
     "Saved-setting persistence"
   ],
   "compatibility_note": "Enable showFocus and acceptFocusCalls for public chat announcements; senders do not need the addon. Yellow names/markers show the latest announcement, expire in five minutes and require another announcement after changing focus; 取消打断 clears the sender record. Secret messages are ignored. The local player public focus can be displayed read-only. No addon focus protocol is registered, sent or handled, and no normal chat is sent.",
-  "upgrade_note": "The retired shareFocus field is cleared; other switches, templates, position and opacity are preserved. The added Integration.lua brings the release to 8 files and no Bindings.xml; preserve WTF SavedVariables.",
+  "upgrade_note": "The retired shareFocus field is cleared; other switches, templates, position and opacity are preserved. Saved custom or empty template lists are not automatically replaced. New installs, invalid-configuration fallback and restoring built-in formats use the two new defaults. Retaining WTF SavedVariables during reinstall also preserves saved templates. The release contains 8 files and no Bindings.xml.",
   "publication_status": "prepared",
   "historical_live_verified": {
     "version": "0.1.0",
@@ -78,8 +78,7 @@
   },
   "declaration_default_templates": [
     "我打断%mark",
-    "我的焦点打断是 {rt%mark}",
-    "PTW焦点：%name"
+    "我的焦点打断是 {rt%mark} %name"
   ],
   "background_opacity": {
     "minimum": 0,
@@ -90,7 +89,7 @@
   "native_focus_macro": "/stopmacro [@focus,noexists]\n/p PTW焦点：%f",
   "current_user_observations": [
     "Historical 0.4.0: on 2026-09-25 the user confirmed native %f expansion, addon receipt and clean icon/name display after the leading-marker fix, and then confirmed the SeUI custom-format workflow. This does not establish arbitrary third-party addon %f support or cross-client/combat/Mythic+ behavior.",
-    "Version 0.4.2 in-game verification is pending."
+    "Version 0.4.3 changes defaults only. The minimap/native-settings entry points introduced in 0.4.2 still await in-game verification."
   ],
   "focus_settings_labels": {
     "showFocus": "显示焦点 / 通报列",
@@ -106,7 +105,7 @@
     "version": "0.4.1"
   },
   "offline_test_results": {
-    "version": "0.4.2",
+    "version": "0.4.3",
     "lua_total_passed": 73,
     "lua_ui_passed": 39,
     "lua_communication_passed": 29,

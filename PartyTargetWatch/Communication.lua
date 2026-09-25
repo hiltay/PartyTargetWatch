@@ -152,7 +152,7 @@ local chatEvents = {
     CHAT_MSG_INSTANCE_CHAT = true, CHAT_MSG_INSTANCE_CHAT_LEADER = true,
 }
 local markerNames = { "星星", "圆圈", "菱形", "三角", "月亮", "方块", "叉叉", "骷髅" }
-local DEFAULT_FORMATS = "我打断%mark\n我的焦点打断是 {rt%mark}\nPTW焦点：%name"
+local DEFAULT_FORMATS = "我打断%mark\n我的焦点打断是 {rt%mark} %name"
 local MAX_FORMATS, MAX_FORMAT_LINE, MAX_FORMAT_BYTES = 20, 255, 8192
 local MAX_CAPTURE_CHECKS = 8192
 

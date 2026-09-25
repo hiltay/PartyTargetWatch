@@ -88,7 +88,7 @@ end
 local tests = {}
 
 tests["legacy sharing settings cannot register receive or send addon messages"] = function()
-    local a = boot(true, { shareFocus = true, acceptFocusCalls = true })
+    local a = boot(true, { shareFocus = true, acceptFocusCalls = true, declarationFormats = "PTW焦点：%name" })
     equal(#a.state.registered, 0)
     equal(a.frame.events.CHAT_MSG_ADDON, nil)
     equal(a.frame.events.ADDON_RESTRICTION_STATE_CHANGED, nil)
@@ -150,7 +150,7 @@ tests["own public focus takes priority while received declarations survive chat 
 end
 
 tests["roster changes and leaving clear declarations and recover newly public member identities"] = function()
-    local a = boot(true, { acceptFocusCalls = true })
+    local a = boot(true, { acceptFocusCalls = true, declarationFormats = "PTW焦点：%name" })
     a:event("CHAT_MSG_PARTY", "PTW焦点：Bob Focus", "Bob-TestRealm")
     a.state.names.party1 = "Carol"
     a:event("UNIT_NAME_UPDATE", "party1")
@@ -237,9 +237,9 @@ tests["declarations expire and clear on disable roster or scene changes"] = func
     equal(a.comm.GetFocus("party1").state, "pending")
 end
 
-tests["format defaults accept all bare markers and only numbered wrapped markers"] = function()
+tests["exact two defaults accept bare markers and numbered markers with names"] = function()
     local a = boot(true)
-    local defaults = "我打断%mark\n我的焦点打断是 {rt%mark}\nPTW焦点：%name"
+    local defaults = "我打断%mark\n我的焦点打断是 {rt%mark} %name"
     equal(a.comm.GetDefaultDeclarationFormats(), defaults)
     equal(a.comm.GetDeclarationFormats(), defaults)
     equal(a.db.declarationFormats, defaults)
@@ -249,13 +249,23 @@ tests["format defaults accept all bare markers and only numbered wrapped markers
             local got, line = a.comm.TestDeclarationMessage("我打断" .. value)
             equal(got, marker); equal(line, 1)
         end
-        local got, line = a.comm.TestDeclarationMessage("我的焦点打断是 {rt" .. marker .. "}")
-        equal(got, marker); equal(line, 2)
+        equal(a.comm.TestDeclarationMessage("我的焦点打断是 {rt" .. marker .. "}"), nil)
+        local namedMarker, namedLine, name = a.comm.TestDeclarationMessage("我的焦点打断是 {rt" .. marker .. "} 训练假人")
+        equal(namedMarker, marker); equal(namedLine, 2); equal(name, "训练假人")
     end
     for _, value in ipairs({ "星星", "01", "0", "9", "{rt1}", "1.0" }) do
-        equal(a.comm.TestDeclarationMessage("我的焦点打断是 {rt" .. value .. "}"), nil)
+        equal(a.comm.TestDeclarationMessage("我的焦点打断是 {rt" .. value .. "} 训练假人"), nil)
     end
     equal(a.comm.TestDeclarationMessage("我打断star"), nil)
+    equal(a.comm.TestDeclarationMessage("PTW焦点：训练假人"), nil)
+    local custom = "我的焦点打断是 {rt%mark}\nPTW焦点：%name"
+    equal(a.comm.SetDeclarationFormats(custom), true)
+    local marker, line, name = a.comm.TestDeclarationMessage("我的焦点打断是 {rt4}")
+    equal(marker, 4); equal(line, 1); equal(name, nil)
+    marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：训练假人")
+    equal(marker, nil); equal(line, 2); equal(name, "训练假人")
+    local reloaded = boot(true, { declarationFormats = a.db.declarationFormats })
+    equal(reloaded.comm.GetDeclarationFormats(), custom, "saved older formats remain unchanged")
 end
 
 tests["format literals never execute pattern syntax and messages keep exact endpoints"] = function()
@@ -393,6 +403,8 @@ tests["successful save clears cached declarations and reload retains formats onl
     equal(reloaded.comm.GetFocus("party1").state, "pending")
     equal(reloaded.comm.TestDeclarationMessage("指定{rt6}"), nil)
     equal(reloaded.comm.TestDeclarationMessage("我打断6"), 6)
+    local marker, line, name = reloaded.comm.TestDeclarationMessage("我的焦点打断是 {rt4} 训练假人")
+    equal(marker, 4); equal(line, 2); equal(name, "训练假人")
 end
 
 tests["missing or corrupt saved formats migrate but an empty list survives reload"] = function()
@@ -436,6 +448,7 @@ end
 
 tests["name formats capture public names with or without raid markers"] = function()
     local a = boot(true)
+    equal(a.comm.SetDeclarationFormats("我打断%mark\n我的焦点打断是 {rt%mark} %name\nPTW焦点：%name"), true)
     local marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：光耀播法者")
     equal(marker, nil); equal(line, 3); equal(name, "光耀播法者")
     for _, creature in ipairs({ "光耀播法者", "Arak's Sun-Priest", "数字1号" }) do
@@ -454,16 +467,17 @@ end
 
 tests["leading raid token in a declared name becomes an icon marker not creature text"] = function()
     local a = boot(true)
+    equal(a.comm.SetDeclarationFormats("PTW焦点：%name"), true)
     for marker = 1, 8 do
         local got, line, name = a.comm.TestDeclarationMessage("PTW焦点：  {rt" .. marker .. "} 多刺的迅叶龙  ")
-        equal(got, marker); equal(line, 3); equal(name, "多刺的迅叶龙")
+        equal(got, marker); equal(line, 1); equal(name, "多刺的迅叶龙")
     end
     local marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：|cffff0000{rt4}|r |cffffffff多刺的迅叶龙|r")
-    equal(marker, 4); equal(line, 3); equal(name, "多刺的迅叶龙")
+    equal(marker, 4); equal(line, 1); equal(name, "多刺的迅叶龙")
     marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：rt4something")
-    equal(marker, nil); equal(line, 3); equal(name, "rt4something")
+    equal(marker, nil); equal(line, 1); equal(name, "rt4something")
     marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：{rt4}" .. string.rep("怪", 32))
-    equal(marker, 4); equal(line, 3); equal(#name, 96)
+    equal(marker, 4); equal(line, 1); equal(#name, 96)
     for _, invalid in ipairs({ "{rt0} Monster", "{rt9} Monster", "{rt04} Monster", "{rt4", "{rt4}",
         "{rt4} {rt5} Monster", "{rt4} %f", "{rt4} %T", "{rt4}" .. string.rep("怪", 33) }) do
         marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：" .. invalid)
@@ -515,17 +529,18 @@ end
 
 tests["name captures remove markup and reject empty oversized and unexpanded values"] = function()
     local a = boot(true)
+    equal(a.comm.SetDeclarationFormats("PTW焦点：%name"), true)
     local marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：|cffff0000|Hunit:test|h怪物名字|h|r")
-    equal(marker, nil); equal(line, 3); equal(name, "怪物名字")
+    equal(marker, nil); equal(line, 1); equal(name, "怪物名字")
     marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：|Ticon:16|t  怪物|Aicon:16:16|a  名字 ||")
-    equal(line, 3); equal(name, "怪物 名字"); assert(not name:find("|", 1, true))
+    equal(line, 1); equal(name, "怪物 名字"); assert(not name:find("|", 1, true))
     for _, invalid in ipairs({ "", " ", "%f", "%t", "%F", "%T", "|cffffffff|r", "|Ticon:16|t", string.rep("x", 97),
         string.rep("怪", 33) }) do
         marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：" .. invalid)
         equal(marker, nil); equal(name, nil); assert(type(line) == "string")
     end
     marker, line, name = a.comm.TestDeclarationMessage("PTW焦点：" .. string.rep("怪", 32))
-    equal(line, 3); equal(#name, 96)
+    equal(line, 1); equal(#name, 96)
 end
 
 tests["ambiguous name or marker captures fail instead of guessing or falling through"] = function()
@@ -557,6 +572,7 @@ end
 
 tests["named declarations retain membership secrecy expiry clearing and no sending"] = function()
     local a = boot(true)
+    equal(a.comm.SetDeclarationFormats("我打断%mark\nPTW焦点：%name"), true)
     a:event("CHAT_MSG_PARTY", "PTW焦点：Ignored", "Bob")
     equal(a.comm.GetFocus("party1").state, "disabled")
     a.comm.SetAcceptCalls(true)

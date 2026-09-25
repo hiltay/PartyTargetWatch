@@ -1,3 +1,19 @@
+## 0.4.3 — Beta
+
+- Reduced incoming defaults to exactly `我打断%mark` and `我的焦点打断是 {rt%mark} %name`. New installs can receive the matching SeUI name-and-marker announcement without adding a template; other custom formats remain supported.
+- These two defaults apply to new installs, invalid-configuration fallback and restoring built-in formats. Upgrades preserve saved custom or empty lists without automatic replacement.
+
+This release changes defaults only. Offline checks are recorded in `validation/TESTING.md`; the minimap and native-settings entry points still await in-game verification. CurseForge materials remain prepared, not submitted or published.
+
+## 0.4.3 — 测试版
+
+- 默认接收格式仅保留 `我打断%mark` 和 `我的焦点打断是 {rt%mark} %name` 两条；新安装无需手加即可接收对应的 SeUI 名称与标记通报，其他格式仍可自定义。
+- 新安装、无效配置回退和恢复内置格式使用这两条；升级保留已保存的自定义模板及空列表，不自动替换或覆盖。
+
+本版仅调整默认格式。离线检查见 `validation/TESTING.md`；小地图按钮和原生设置入口仍待实机确认。CurseForge 资料仍为 prepared，尚未提交或发布。
+
+---
+
 ## 0.4.2 — Beta
 
 - Added a dependency-free minimap button: left-click settings and right-click incoming formats, compatible with the inspected local EUI collection rules.

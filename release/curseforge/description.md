@@ -24,7 +24,7 @@ Teammates using SeUI 1.8.4 can configure their existing quick-focus announcement
 我的焦点打断是 {rt%mark} %f
 ```
 
-Save this matching incoming template in PartyTargetWatch:
+New installs already include this matching incoming template. Upgrades preserve saved templates; if this line is missing, add it in `/ptw formats` and save:
 
 ```text
 我的焦点打断是 {rt%mark} %name
@@ -44,8 +44,7 @@ New-install defaults:
 
 ```text
 我打断%mark
-我的焦点打断是 {rt%mark}
-PTW焦点：%name
+我的焦点打断是 {rt%mark} %name
 ```
 
 - One template per line: up to 20 nonempty templates, 255 bytes each and 8192 bytes total. Blank lines and surrounding spaces/tabs are ignored.
@@ -53,15 +52,16 @@ PTW焦点：%name
 - `%mark` accepts the eight Chinese marker names, digits 1–8 or `{rt1}`–`{rt8}`. `{rt%mark}` matches a full `{rtN}` token.
 - `%name` captures a nonempty name, up to 96 bytes after cleaning. A leading `{rt1}`–`{rt8}` becomes a marker icon; a conflict with explicit `%mark` rejects the message. Name-only templates need fixed text. `%name` and `%text` cannot be adjacent. Unexpanded `%f` and `%t` are rejected as names.
 - Other text is literal. Full-message matching follows template order and rejects ambiguous captures and unknown placeholders.
-- Draft tests send no chat and record no announcements. **保存格式** applies the draft and clears old records. Existing templates are preserved on upgrade; **加入名称格式** appends `PTW焦点：%name` to the draft only. Saving an empty list stops new records; cancellation remains available while reception is enabled.
+- New installs, invalid-configuration fallback and restoring built-in formats use these two defaults. Upgrades preserve saved templates, including custom and empty lists; they do not automatically replace them. Other custom formats remain supported.
+- Draft tests send no chat and record no announcements. **保存格式** applies the draft and clears old records. **加入名称格式** appends the optional `PTW焦点：%name` to the draft only. Saving an empty list stops new records; cancellation remains available while reception is enabled.
 
 Only current members' public party, raid and instance-group messages are eligible. Records also clear when leaving the group, changing scenes or disabling reception. Marker-only declarations retain the yellow **约定：marker** display; they are not resolved to monster names. Protected messages are ignored. The addon does not select targets, perform combat actions, send ordinary target-call chat or bypass game restrictions.
 
-## 0.4.2 Beta and verification
+## 0.4.3 Beta and verification
 
-Targets Retail **12.1.0 / TOC 120100**. Version 0.4.2 removes addon-to-addon focus synchronization: no focus-protocol prefix registration, sending or message handling remains. Normal-chat sending is also absent. The added `Integration.lua` brings the release to eight files. This version and its minimap/native-settings entry points await in-game verification; offline checks passed 73 Lua scenarios (39 UI, 29 chat communication, 5 integration) and seven delivery tests, with one Windows symbolic-link privilege skip (WinError 1314). Details are recorded in `validation/TESTING.md`. The user confirmed the earlier 0.4.0 name/icon display and SeUI custom-format workflow locally. Cross-client chat receipt and combat/Mythic+ behavior remain unverified.
+Targets Retail **12.1.0 / TOC 120100**. Version 0.4.3 changes only the incoming defaults to the two templates above. Addon-to-addon focus synchronization and normal-chat sending remain absent. The release contains eight files; the minimap and native-settings entry points still await in-game verification. Current offline results are recorded in `validation/TESTING.md`. The user confirmed the earlier 0.4.0 name/icon display and SeUI custom-format workflow locally. Cross-client chat receipt and combat/Mythic+ behavior remain unverified.
 
-For manual upgrades, back up the old addon folder outside `AddOns`, then replace it with the complete new folder so retired `Bindings.xml` is removed. Preserve `WTF` SavedVariables to retain settings. The retired `shareFocus` field is cleared during upgrade; other switches, templates, position and opacity are preserved. CurseForge materials remain prepared, not submitted or published. [API sources and verification boundaries](https://github.com/hiltay/PartyTargetWatch/blob/main/docs/API-NOTES.md).
+For manual upgrades, back up the old addon folder outside `AddOns`, then replace it with the complete new folder so retired `Bindings.xml` is removed. Preserve `WTF` SavedVariables to retain settings. The retired `shareFocus` field is cleared during upgrade; other switches, templates, position and opacity are preserved. Retained SavedVariables also retain saved templates after reinstalling; restore built-in formats and save to use the new two-template list. CurseForge materials remain prepared, not submitted or published. [API sources and verification boundaries](https://github.com/hiltay/PartyTargetWatch/blob/main/docs/API-NOTES.md).
 
 ---
 
@@ -83,7 +83,7 @@ PartyTargetWatch（队友目标）显示成员当前选中的目标，并从公�
 我的焦点打断是 {rt%mark} %f
 ```
 
-接收方保存以下模板：
+新安装已默认包含以下接收模板，无需手动添加；升级保留旧模板，若缺少这一行，可在 `/ptw formats` 中补入并保存：
 
 ```text
 我的焦点打断是 {rt%mark} %name
@@ -97,16 +97,23 @@ SeUI 的 `%mark` 是面板选中的标记；“不覆盖已有标记”可能使
 
 ### 接收格式与状态
 
+默认只包含以下两条：
+
+```text
+我打断%mark
+我的焦点打断是 {rt%mark} %name
+```
+
 每行一个模板，最多 20 条、每条 255 字节、总输入 8192 字节。每条至少含 `%name` 或 `%mark` 之一，二者各最多一个，另可含最多两个非空 `%text`。`%mark` 接受中文标记名、数字 1–8 或 `{rtN}`；`%name` 捕获清理后最多 96 字节的非空名称，前置 `{rtN}` 提取为图标。只有名称的模板必须含固定文字，名称与 `%text` 之间也需要固定分隔；未展开 `%f`/`%t` 不作为名称接受。其余内容按字面整句匹配，拒绝歧义和未知占位符。
 
-样本测试只检查草稿，不发消息；“保存格式”使其生效并清除旧记录。“加入名称格式”只在草稿追加 `PTW焦点：%name`。升级保留已有模板，保存空列表停止新记录，接收开启时固定取消语句仍有效。
+新安装、无效配置回退和恢复内置格式使用以上两条；升级保留已有自定义模板及空列表，不自动替换，其他格式仍可自行配置。样本测试只检查草稿，不发消息；“保存格式”使其生效并清除旧记录。“加入名称格式”只在草稿追加可选的 `PTW焦点：%name`。保存空列表停止新记录，接收开启时固定取消语句仍有效。
 
 两个开关独立、默认关闭，升级保留已保存选择。本机公开可读焦点仍可直接显示，队友信息来自聊天通报。隐藏窗口或列不关闭接收。只接收当前组员的小队、团队和副本队伍公开消息，离组、换场景或关闭接收时清除记录；只含标记时保留黄色“约定：三角”等显示，不反查名称。受保护消息会被忽略，不提供解除游戏限制的外部通信方案。
 
-### 0.4.2 测试版
+### 0.4.3 测试版
 
-面向正式服 **12.1.0 / TOC 120100**。本版删除插件间焦点同步，不再注册、发送或处理旧焦点协议，也不发送普通聊天。新增 `Integration.lua` 后发行包共 8 个文件；0.4.2 及两个新入口尚待实机确认，离线检查通过 73 个 Lua 场景（39 UI、29 聊天通信、5 入口集成）及 7 个交付测试，另 1 项因 Windows 符号链接权限跳过（WinError 1314）。详细记录见 `validation/TESTING.md`。历史 0.4.0 已有用户确认的名称、图标显示与 SeUI 自定义格式联动；跨客户端接收、战斗与大秘境完整流程仍待验证。
+面向正式服 **12.1.0 / TOC 120100**。0.4.3 仅将默认接收格式调整为上述两条。插件间焦点同步和普通聊天发送功能继续移除，发行包共 8 个文件；小地图按钮和原生设置入口仍待实机确认，当前离线检查见 `validation/TESTING.md`。历史 0.4.0 已有用户确认的名称、图标显示与 SeUI 自定义格式联动；跨客户端接收、战斗与大秘境完整流程仍待验证。
 
-手动升级时先将旧插件目录备份到 `AddOns` 之外，再用完整新目录替换，移除废弃的 `Bindings.xml`；保留 `WTF` SavedVariables 即可保留设置；升级清除退役的 `shareFocus` 字段，其余开关、模板、位置与透明度保留。CurseForge 资料仍为 prepared，尚未提交或发布。
+手动升级时先将旧插件目录备份到 `AddOns` 之外，再用完整新目录替换，移除废弃的 `Bindings.xml`；保留 `WTF` SavedVariables 即可保留设置；升级清除退役的 `shareFocus` 字段，其余开关、模板、位置与透明度保留。重装时保留 SavedVariables 也会保留旧模板，如需两条新默认，恢复内置格式后保存即可。CurseForge 资料仍为 prepared，尚未提交或发布。
 
 [Source / 源代码](https://github.com/hiltay/PartyTargetWatch) · [Issues / 问题反馈](https://github.com/hiltay/PartyTargetWatch/issues) · [MIT License / 许可证](https://github.com/hiltay/PartyTargetWatch/blob/main/LICENSE)
