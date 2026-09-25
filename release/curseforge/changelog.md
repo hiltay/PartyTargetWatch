@@ -1,3 +1,31 @@
+## 0.4.2 — Beta
+
+- Added a dependency-free minimap button: left-click settings and right-click incoming formats, compatible with the inspected local EUI collection rules.
+- Added a native **Settings → AddOns → PartyTargetWatch 队友目标** category linking to the existing settings and format panels. These entries were absent because earlier versions had not created them, unrelated to game restrictions or CurseForge listing.
+- Added `Integration.lua`, bringing the release to eight files. Minimap collection and the native settings category await an in-game reload check.
+
+- Removed addon-to-addon focus synchronization, its setting, prefix registration, message send/receive paths, handshake, heartbeat and remote snapshots. The old focus protocol is no longer handled.
+- Retained target monitoring, incoming public chat announcements and read-only display of the local player's public focus. PartyTargetWatch sends no normal chat.
+- Kept two controls: **显示焦点 / 通报列** and **接收队友的焦点通报**. Disabled reception shows **未开启接收**; enabled reception without a record shows **等待通报**.
+- Migration removes the old `shareFocus` field while preserving other switches, templates, position and opacity. Name/marker parsing, the five-minute expiry and `取消打断` remain unchanged.
+
+Version 0.4.2 awaits in-game verification; current offline results are recorded in `validation/TESTING.md`. CurseForge materials remain prepared, not submitted or published. Synchronization described below belongs to historical versions only.
+
+## 0.4.2 — 测试版
+
+- 新增无需第三方库的小地图按钮：左键打开设置，右键编辑接收格式，符合已核查的本机 EUI 收纳规则。
+- 新增原生“设置 → 插件 → PartyTargetWatch 队友目标”分类，打开现有设置与接收格式面板。旧版没有创建这些入口，与游戏限制或 CurseForge 收录无关。
+- 新增 `Integration.lua`，发行包共 8 个文件；小地图收纳及原生设置入口待 `/reload` 后实机确认。
+
+- 删除插件间焦点同步及其设置、前缀注册、消息发送/接收、握手、保活与远端缓存，不再处理旧焦点协议。
+- 保留目标监控、公开聊天通报接收和本机公开焦点只读显示；本插件不发送普通聊天。
+- 设置仅保留“显示焦点 / 通报列”和“接收队友的焦点通报”。关闭接收显示“未开启接收”，开启且无记录显示“等待通报”。
+- 升级清除旧 `shareFocus` 字段，其他开关、模板、位置与透明度保留。名称/标记解析、5 分钟有效期和“取消打断”不变。
+
+0.4.2 尚待实机确认，当前离线结果见 `validation/TESTING.md`。CurseForge 资料为 prepared，尚未提交或发布。下列同步说明仅为旧版历史记录。
+
+---
+
 ## 0.4.1 — Beta
 
 - Reorganized **焦点与通报** settings: show the focus/announcement column, receive teammates' announcements, then optional addon focus synchronization. Saved switch states are preserved.

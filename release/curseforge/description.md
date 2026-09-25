@@ -7,13 +7,16 @@ An independent WoW Retail addon showing group members and their selected targets
 - Solo, party and raid rosters up to 40 members; two columns above 20 members.
 - Target raid markers, a movable and lockable window, 60%–200% scaling, sample preview and scene visibility settings.
 - Background opacity from 0 to 1, default 0.88. Zero keeps text and icons visible while making the background, border and row fills transparent.
-- Independent controls for the focus/announcement column, incoming announcements and optional addon-to-addon focus synchronization. All default off; updates preserve saved choices.
+- Minimap button: left-click settings, right-click incoming formats. A native **Settings → AddOns → PartyTargetWatch 队友目标** page links to the existing panels.
+- Two independent controls for the focus/announcement column and incoming announcements. Both default off; updates preserve saved choices.
+
+The minimap button needs no third-party library and follows the inspected local EUI collection rules. Both new entry points await an in-game reload check. Previous versions created neither entry point; their absence was unrelated to game information restrictions or CurseForge listing.
 
 Use `/ptw` to show the window, `/ptw settings` for settings, `/ptw formats` for incoming templates and `/ptw help` for commands. Install the addon folder in Retail's `Interface/AddOns` folder.
 
 ## Receive teammates' focus announcements
 
-Under **焦点与通报**, enable **显示焦点 / 通报列** and **接收队友的焦点通报**. These two controls are sufficient for chat announcements. The sender does not need PartyTargetWatch, and **插件间焦点同步（可选）** can remain off. Open **接收格式…** to configure matching templates.
+Under **焦点与通报**, enable **显示焦点 / 通报列** and **接收队友的焦点通报**. The sender does not need PartyTargetWatch. Open **接收格式…** to configure matching templates.
 
 Teammates using SeUI 1.8.4 can configure their existing quick-focus announcement once:
 
@@ -31,9 +34,9 @@ Their usual SeUI focus action then includes the announcement, without another ch
 
 SeUI's `%mark` is the marker selected in its settings. With existing-marker protection enabled, it can differ from the monster's existing marker. Conflicting explicit and name-prefix markers are rejected. The alternative pair `PTW焦点：%f` / `PTW焦点：%name` avoids an explicit configured marker. Other announcement addons may use different sending placeholders: their actual message must contain a focus name, not a literal `%f` or merely the target of a successful interrupt.
 
-The **焦点 / 通报** column shows yellow names or assignments from the latest received announcement. Changing focus requires a new announcement. Records expire after five minutes; a group member can send `取消打断` to clear their own record. **等待通报** means receiving is enabled, synchronization is off and no usable record is available. Yellow records do not verify current focus or distinguish same-name enemies.
+The **焦点 / 通报** column shows yellow names or assignments from the latest received announcement. Changing focus requires a new announcement. Records expire after five minutes; a group member can send `取消打断` to clear their own record. **等待通报** means receiving is enabled and no usable record is available; **未开启接收** means reception is disabled. Yellow records do not verify current focus or distinguish same-name enemies.
 
-Optional focus synchronization still requires both clients to install and enable it, with the game allowing readable data and communication. Readable automatic focus takes priority; remote snapshots expire after 12 seconds. Hiding the window or column does not disable reception or synchronization.
+The local player's publicly readable focus can also be displayed directly. Teammate focus information comes from received chat announcements. Hiding the window or column does not disable reception.
 
 ## Incoming templates
 
@@ -54,11 +57,11 @@ PTW焦点：%name
 
 Only current members' public party, raid and instance-group messages are eligible. Records also clear when leaving the group, changing scenes or disabling reception. Marker-only declarations retain the yellow **约定：marker** display; they are not resolved to monster names. Protected messages are ignored. The addon does not select targets, perform combat actions, send ordinary target-call chat or bypass game restrictions.
 
-## 0.4.1 Beta and verification
+## 0.4.2 Beta and verification
 
-Targets Retail **12.1.0 / TOC 120100**. Version 0.4.1 updates settings, status text and explanations without changing chat parsing or synchronization. Its new UI awaits an in-game reload check. Version 0.4.1 passed 76 Lua mock scenarios (39 UI, 37 communication) and seven delivery tests, with one Windows symbolic-link privilege skip. The user confirmed 0.4.0 name/icon display and the SeUI custom-format workflow locally. Cross-client and combat/Mythic+ behavior remain unverified.
+Targets Retail **12.1.0 / TOC 120100**. Version 0.4.2 removes addon-to-addon focus synchronization: no focus-protocol prefix registration, sending or message handling remains. Normal-chat sending is also absent. The added `Integration.lua` brings the release to eight files. This version and its minimap/native-settings entry points await in-game verification; offline checks passed 73 Lua scenarios (39 UI, 29 chat communication, 5 integration) and seven delivery tests, with one Windows symbolic-link privilege skip (WinError 1314). Details are recorded in `validation/TESTING.md`. The user confirmed the earlier 0.4.0 name/icon display and SeUI custom-format workflow locally. Cross-client chat receipt and combat/Mythic+ behavior remain unverified.
 
-For manual upgrades, back up the old addon folder outside `AddOns`, then replace it with the complete new folder so retired `Bindings.xml` is removed. Preserve `WTF` SavedVariables to retain settings. CurseForge materials remain prepared, not submitted or published. [API sources and verification boundaries](https://github.com/hiltay/PartyTargetWatch/blob/main/docs/API-NOTES.md).
+For manual upgrades, back up the old addon folder outside `AddOns`, then replace it with the complete new folder so retired `Bindings.xml` is removed. Preserve `WTF` SavedVariables to retain settings. The retired `shareFocus` field is cleared during upgrade; other switches, templates, position and opacity are preserved. CurseForge materials remain prepared, not submitted or published. [API sources and verification boundaries](https://github.com/hiltay/PartyTargetWatch/blob/main/docs/API-NOTES.md).
 
 ---
 
@@ -68,9 +71,11 @@ PartyTargetWatch（队友目标）显示成员当前选中的目标，并从公�
 
 `/ptw` 显示窗口，`/ptw settings` 打开设置，`/ptw formats` 编辑接收格式。
 
+新增小地图按钮：左键打开设置，右键编辑接收格式，无需第三方库，并符合已核查的本机 EUI 收纳规则。原生 `Esc → 选项/设置 → 插件 → PartyTargetWatch 队友目标` 分类提供打开现有面板的按钮。旧版未创建这两个入口，与游戏信息限制或 CurseForge 收录无关；新版入口仍待 `/reload` 后实机确认。
+
 ### 复用队友已有的焦点喊话
 
-在“焦点与通报”中开启“显示焦点 / 通报列”和“接收队友的焦点通报”即可。发送方无需安装本插件，也无需开启“插件间焦点同步（可选）”。点击“接收格式…”设置识别模板。
+在“焦点与通报”中开启“显示焦点 / 通报列”和“接收队友的焦点通报”即可。发送方无需安装本插件。点击“接收格式…”设置识别模板。
 
 使用 SeUI 1.8.4 的队友将快速焦点喊话配置为：
 
@@ -88,20 +93,20 @@ PartyTargetWatch（队友目标）显示成员当前选中的目标，并从公�
 
 SeUI 的 `%mark` 是面板选中的标记；“不覆盖已有标记”可能使它与怪物已有标记不同。显式标记与名称前缀标记冲突时，本插件拒绝该消息。也可配对使用 `PTW焦点：%f` 与 `PTW焦点：%name`，不显式填写所选标记。其他插件需按其实际占位符配置，保证发出的消息含有焦点名称；打断成功时的受击目标不等于焦点。
 
-“焦点 / 通报”列的黄色名称或标记来自队友最近一次通报，换焦点后需再次通报，记录有效 5 分钟。队友在组队频道发送“取消打断”清除自己的记录。接收开启、同步关闭且无可用记录时显示“等待通报”。这些记录不能确认实时焦点，也不能区分同名怪物。
+“焦点 / 通报”列的黄色名称或标记来自队友最近一次通报，换焦点后需再次通报，记录有效 5 分钟。队友在组队频道发送“取消打断”清除自己的记录。接收开启且无可用记录时显示“等待通报”，关闭接收时显示“未开启接收”。这些记录不能确认实时焦点，也不能区分同名怪物。
 
-### 接收格式与可选同步
+### 接收格式与状态
 
 每行一个模板，最多 20 条、每条 255 字节、总输入 8192 字节。每条至少含 `%name` 或 `%mark` 之一，二者各最多一个，另可含最多两个非空 `%text`。`%mark` 接受中文标记名、数字 1–8 或 `{rtN}`；`%name` 捕获清理后最多 96 字节的非空名称，前置 `{rtN}` 提取为图标。只有名称的模板必须含固定文字，名称与 `%text` 之间也需要固定分隔；未展开 `%f`/`%t` 不作为名称接受。其余内容按字面整句匹配，拒绝歧义和未知占位符。
 
 样本测试只检查草稿，不发消息；“保存格式”使其生效并清除旧记录。“加入名称格式”只在草稿追加 `PTW焦点：%name`。升级保留已有模板，保存空列表停止新记录，接收开启时固定取消语句仍有效。
 
-三个开关独立、默认关闭，升级保留已保存选择。可选插件间同步需要双方安装启用，且游戏允许读取与通信；远端快照 12 秒过期，可读自动焦点优先。隐藏窗口或列不关闭接收与同步。只接收当前组员的小队、团队和副本队伍公开消息，离组、换场景或关闭接收时清除记录；只含标记时保留黄色“约定：三角”等显示，不反查名称。受保护消息会被忽略，不提供解除游戏限制的外部通信方案。
+两个开关独立、默认关闭，升级保留已保存选择。本机公开可读焦点仍可直接显示，队友信息来自聊天通报。隐藏窗口或列不关闭接收。只接收当前组员的小队、团队和副本队伍公开消息，离组、换场景或关闭接收时清除记录；只含标记时保留黄色“约定：三角”等显示，不反查名称。受保护消息会被忽略，不提供解除游戏限制的外部通信方案。
 
-### 0.4.1 测试版
+### 0.4.2 测试版
 
-面向正式服 **12.1.0 / TOC 120100**。本版调整设置、状态文字与说明，聊天解析与同步协议不变；新界面仍待 `/reload` 后实机确认。0.4.1 有 76 个 Lua mock 通过（39 UI、37 通信），交付测试 7 通过、1 因 Windows 符号链接权限跳过；0.4.0 已有用户确认的名称、图标显示与 SeUI 自定义格式联动。跨客户端、战斗与大秘境完整流程仍未验证。
+面向正式服 **12.1.0 / TOC 120100**。本版删除插件间焦点同步，不再注册、发送或处理旧焦点协议，也不发送普通聊天。新增 `Integration.lua` 后发行包共 8 个文件；0.4.2 及两个新入口尚待实机确认，离线检查通过 73 个 Lua 场景（39 UI、29 聊天通信、5 入口集成）及 7 个交付测试，另 1 项因 Windows 符号链接权限跳过（WinError 1314）。详细记录见 `validation/TESTING.md`。历史 0.4.0 已有用户确认的名称、图标显示与 SeUI 自定义格式联动；跨客户端接收、战斗与大秘境完整流程仍待验证。
 
-手动升级时先将旧插件目录备份到 `AddOns` 之外，再用完整新目录替换，移除废弃的 `Bindings.xml`；保留 `WTF` SavedVariables 即可保留设置。CurseForge 资料仍为 prepared，尚未提交或发布。
+手动升级时先将旧插件目录备份到 `AddOns` 之外，再用完整新目录替换，移除废弃的 `Bindings.xml`；保留 `WTF` SavedVariables 即可保留设置；升级清除退役的 `shareFocus` 字段，其余开关、模板、位置与透明度保留。CurseForge 资料仍为 prepared，尚未提交或发布。
 
 [Source / 源代码](https://github.com/hiltay/PartyTargetWatch) · [Issues / 问题反馈](https://github.com/hiltay/PartyTargetWatch/issues) · [MIT License / 许可证](https://github.com/hiltay/PartyTargetWatch/blob/main/LICENSE)

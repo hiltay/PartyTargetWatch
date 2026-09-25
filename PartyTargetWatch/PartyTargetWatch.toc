@@ -1,13 +1,14 @@
 ## Interface: 120100
 ## Title: PartyTargetWatch
 ## Title-zhCN: PartyTargetWatch 队友目标
-## Notes: Group targets, raid markers, chat declarations, and optional public focus sharing.
-## Notes-zhCN: 队友目标与标记、聊天声明识别和可选焦点共享；输入 /ptw settings 设置。
+## Notes: Group targets, raid markers, and customizable focus announcements received from chat.
+## Notes-zhCN: 队友目标与标记、自定义焦点通报接收；输入 /ptw settings 设置。
 ## Author: PartyTargetWatch contributors
-## Version: 0.4.1
+## Version: 0.4.2
 ## SavedVariables: PartyTargetWatchDB
 ## IconTexture: Interface\Icons\Ability_Hunter_SniperShot
 
 Communication.lua
 Settings.lua
+Integration.lua
 PartyTargetWatch.lua

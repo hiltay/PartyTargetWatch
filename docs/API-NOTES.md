@@ -12,7 +12,9 @@
 
 `type(index) == "number"` 只检查类型，并不读取标记编号。关于 `type(secret)` 仍返回真实 Lua 类型的直接文字说明可见[社区技术参考](https://warcraft.wiki.gg/wiki/Secret_aspects)。这不是暴雪官方声明；本次没有找到生成文档中 Lua builtin `type` 的独立条目，也没有在真实 12.1.0 客户端重现该行为。原生显示调用应保留失败时清空的保护，并在客户端验证有标记、无标记及解除标记三种情况。
 
-## 队友焦点与通信
+## 历史：队友焦点与通信（0.4.2 已移除同步）
+
+**以下插件间通信方案和缓存行为仅记录 0.2.0–0.4.1 的设计依据，0.4.2 已全部退役。** 当前版本不注册焦点协议前缀、不发送插件焦点消息、不处理 `CHAT_MSG_ADDON`，也无握手、保活和远端快照。
 
 可用的本地焦点是 `focus`，其变化事件为 `PLAYER_FOCUS_CHANGED`。生成的 UnitTokenType 列出 Focus、FocusTarget 及 Party 单位，没有可据此使用的“队友焦点”接口。本次未取得原生 token parser 的实现，也未在客户端实测 `party1focus`；因此**不把 `party1focus` 当作受支持接口**。共享功能由各客户端读取自己的 `focus`，仅在值公开、通信允许时发送；对方必须安装并启用兼容协议。[UnitSharedDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/UnitSharedDocumentation.lua)、[UnitDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/UnitDocumentation.lua)
 
@@ -27,7 +29,7 @@
 
 普通队伍聊天里的公开声明只能标成“约定/声明记录”，不能当作当前实际焦点。消息在受限阶段可能不可读；不能通过读取普通聊天恢复 addon comms 被禁止的信息。无数据、未共享、超时、离线、通信受限应与“无焦点”分开。
 
-## 主动通报移除与外部服务
+## 历史：主动通报移除与外部服务
 
 0.3.1 已删除读取目标并向普通聊天发送通报的路径及其 UI、命令、快捷键和专用诊断。目标监控、接收公开聊天声明、默认关闭的公开焦点插件通信仍保留。
 
@@ -39,9 +41,23 @@ WoW addon 的受支持 Lua API 没有任意 HTTP/socket 客户端接口。暴雪
 
 `IsResting()` 是普通 bool，适合 UI 明确标注“主城/旅店休息区”的开关；它不是精确的“只在城市”判定。本次未找到可替代它的通用 City API。副本类型应优先于休息区分类。[PlayerScriptDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/PlayerScriptDocumentation.lua)
 
-本记录确认的是接口签名、secret 元数据、暴雪 UI 用法与官方公告，不是游戏内验收。Lua mock 无法模拟真实 secret、taint、服务器限流或对方客户端。发布前应人工核验：两个客户端的公开焦点共享与聊天声明；副本/M+整段限制及恢复；标记设置/取消；长中文名称；掉线/离组/重载后的缓存失效。
+本记录确认的是接口签名、secret 元数据、暴雪 UI 用法与官方公告，不是游戏内验收。Lua mock 无法模拟真实 secret、taint、服务器限流或对方客户端。当前版本仍需人工核验队友聊天通报接收、副本/M+限制下的可读性、标记设置/取消、长中文名称，以及掉线/离组/重载后的记录失效；不再验证已移除的插件间同步。
 
-## 0.4.1：接收通报与可选同步的界面区分
+## 0.4.2：移除插件间焦点同步
+
+当前版本仅保留聊天通报接收与本机公开焦点的只读显示，仍由主模块显示成员当前目标。不再注册焦点协议前缀、发送插件消息或处理 `CHAT_MSG_ADDON`；握手、保活、远端缓存和同步设置均删除，普通聊天发送也未恢复。用户已有 SeUI 焦点喊话与 `%name` 接收模板继续适用，解析规则、300 秒有效期和固定取消语句不变。
+
+设置仅剩 `showFocus`（显示焦点 / 通报列）与 `acceptFocusCalls`（接收队友的焦点通报），接收关闭显示“未开启接收”，开启且无可用记录显示“等待通报”。升级清除旧 `shareFocus` 字段，保留其他开关、格式、位置与透明度。新版尚待 `/reload` 后实机确认；测试结果见 `validation/TESTING.md`。
+
+### 0.4.2：小地图按钮与原生设置分类
+
+旧版未创建小地图按钮，也未注册原生设置分类，所以既不会被小地图按钮收纳发现，也不会出现在原生“设置 → 插件”列表；这与目标信息限制、插件同步限制或 CurseForge 收录无关。`Integration.lua` 新建无第三方库依赖的 `PartyTargetWatchMinimapButton`，左键打开现有设置面板，右键打开接收格式。按钮允许收纳插件改变父级与尺寸，不修改 EUI 源码。
+
+只读核查本机 `EllesmereUIMinimap.lua` 的 `GatherMinimapButtons`：其候选是 `Minimap` 直属、具有名字、名字非数字结尾且宽度至少 20 的 Button。新按钮按这些条件创建，不要求 LibDBIcon，也不要求 CurseForge 上架。规则匹配是源码核查结论，尚未在本机 `/reload` 后确认实际收纳表现，不推广为所有小地图收纳插件的兼容保证。
+
+原生分类使用 `Settings.RegisterCanvasLayoutCategory` 与 `Settings.RegisterAddOnCategory`，分类标题为“PartyTargetWatch 队友目标”。页面上的“打开设置”和“编辑接收格式”按钮进入已有独立面板，不复制配置逻辑。[暴雪 Settings 实现](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_Settings_Shared/Blizzard_Settings.lua)。两个入口仍待实机验证；新增模块使发行 ZIP 包含 8 个文件。
+
+## 历史 0.4.1：接收通报与可选同步的界面区分（同步已退役）
 
 本版不调整 API 读取、聊天解析、同步协议或限制判断。设置中的“焦点与通报”依次提供“显示焦点 / 通报列”“接收队友的焦点通报”和“插件间焦点同步（可选）”，格式入口为“接收格式…”。聊天方案只需前两项，发言者无需本插件；可选同步仍要求双方安装启用且游戏允许。升级保留现有保存开关，不强制启用接收或关闭同步。
 

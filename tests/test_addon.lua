@@ -9,7 +9,7 @@ local function boot(saved)
     local state = { group = false, raid = false, count = 0, instanceType = "none", resting = false,
         names = { player = "自己", target = "训练假人" }, offline = {}, errors = {}, secrets = {},
         markers = {}, focuses = {}, nameCalls = 0, now = 0, secretTypes = {}, existsResults = {},
-        rosterRebuilds = 0, enabledCalls = {}, acceptCalls = {}, transmitted = {}, messages = {},
+        rosterRebuilds = 0, acceptCalls = {}, transmitted = {}, messages = {},
         formatSaveCalls = {}, formatTestCalls = {}, formatResetCalls = 0, formatClearCalls = 0, scrollingCalls = {},
         defaultFormats = "我打断%mark\n我负责%mark" }
     local methods = {}
@@ -166,9 +166,7 @@ local function boot(saved)
     env.SetBinding = function() error("must not change keybindings") end
     env.SaveBindings = function() error("must not save keybindings") end
     env.SendChatMessage = function(...) state.transmitted[#state.transmitted + 1] = { ... } end
-    env.C_ChatInfo = { RegisterAddonMessagePrefix = function() return true end,
-        SendChatMessage = env.SendChatMessage,
-        SendAddonMessage = function(...) state.transmitted[#state.transmitted + 1] = { ... } end }
+    env.C_ChatInfo = { SendChatMessage = env.SendChatMessage }
     for _, name in ipairs({ "ScrollingEdit_OnLoad", "ScrollingEdit_OnCursorChanged", "ScrollingEdit_OnTextChanged", "ScrollingEdit_OnUpdate" }) do
         local handlerName = name
         env[handlerName] = function(...)
@@ -180,13 +178,6 @@ local function boot(saved)
         Init = function(db, onChanged) state.commDB, state.onChanged = db, onChanged end,
         RebuildRoster = function() state.rosterRebuilds = state.rosterRebuilds + 1 end,
         GetFocus = function(unit) return state.focuses[unit] or { state = "pending" } end,
-        SetEnabled = function(value)
-            -- The real module ignores unchanged settings; the UI must let the
-            -- setter observe the previous value so handshake/cache work runs.
-            if state.commDB.shareFocus == value then return end
-            state.enabledCalls[#state.enabledCalls + 1] = value
-            state.commDB.shareFocus = value
-        end,
         SetAcceptCalls = function(value)
             if state.commDB.acceptFocusCalls == value then return end
             state.acceptCalls[#state.acceptCalls + 1] = value
@@ -357,7 +348,7 @@ tests["position, scale and lock persist without modifying global UI"] = function
     b:command("scale 900"); equal(b.frame.scale, 1.25)
     b:command("reset"); equal(b.frame.scale, 1); equal(b.env.PartyTargetWatchDB.locked, false)
 end
-tests["corrupt saved settings are normalized"] = function()
+tests["saved settings normalize corruption and remove retired sync without losing preferences"] = function()
     for _, saved in ipairs({ 1, "broken", { point = "INVALID", relativePoint = false, x = 0/0,
         y = math.huge, scale = -100, hidden = "bad", locked = {},
         showFocus = "yes", shareFocus = {}, showWorld = "no", acceptFocusCalls = 1 } }) do
@@ -365,12 +356,22 @@ tests["corrupt saved settings are normalized"] = function()
         equal(a.frame.shown, true); equal(a.frame.scale, 1)
         equal(a.env.PartyTargetWatchDB.point, "CENTER")
         equal(a.env.PartyTargetWatchDB.showFocus, false)
-        equal(a.env.PartyTargetWatchDB.shareFocus, false)
+        equal(a.env.PartyTargetWatchDB.shareFocus, nil)
         equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
         for _, key in ipairs({ "showWorld", "showResting", "showDungeon", "showRaid", "showScenario", "showBattleground", "showArena" }) do
             equal(a.env.PartyTargetWatchDB[key], true, key)
         end
     end
+    local formats = "我的焦点打断是 {rt%mark} %name"
+    local a = boot({ shareFocus = true, showFocus = true, acceptFocusCalls = true,
+        declarationFormats = formats, backgroundAlpha = 0.3, scale = 1.25, locked = true })
+    a:load()
+    equal(a.env.PartyTargetWatchDB.shareFocus, nil, "retired sync setting was not removed")
+    equal(a.env.PartyTargetWatchDB.showFocus, true)
+    equal(a.env.PartyTargetWatchDB.acceptFocusCalls, true)
+    equal(a.env.PartyTargetWatchDB.declarationFormats, formats)
+    equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0.3)
+    equal(a.frame.scale, 1.25); equal(a.env.PartyTargetWatchDB.locked, true)
 end
 tests["secret name objects reach SetText unchanged"] = function()
     local a = boot()
@@ -451,21 +452,17 @@ tests["preview bypasses scene filters and explicit hide still wins"] = function(
     a:command("show"); equal(a.frame.shown, false)
     a:scenario("party", false); equal(a.frame.shown, true); equal(#a:rows(), 1)
 end
-tests["focus column sharing and declaration options use settings callbacks"] = function()
+tests["focus column and declaration options use settings callbacks"] = function()
     local a = boot(); a.state.focuses.player = { state = "ok", name = "真实焦点", marker = 4 }
     a:load(); equal(a:rows()[1].focus.shown, false)
     a:command("settings"); a:click("显示焦点 / 通报列"); a:tick(0.21)
     equal(a.env.PartyTargetWatchDB.showFocus, true); equal(a:rows()[1].focus.shown, true)
     equal(a:rows()[1].focus.text, "真实焦点")
-    a:click("插件间焦点同步（可选）")
-    equal(a.env.PartyTargetWatchDB.shareFocus, true); equal(a.state.enabledCalls[#a.state.enabledCalls], true)
     a:click("接收队友的焦点通报"); equal(a.env.PartyTargetWatchDB.acceptFocusCalls, true)
     equal(a.state.acceptCalls[#a.state.acceptCalls], true)
     a:click("接收队友的焦点通报"); equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
     equal(a.state.acceptCalls[#a.state.acceptCalls], false)
     a:click("显示焦点 / 通报列"); equal(a:rows()[1].focus.shown, false)
-    a:click("插件间焦点同步（可选）")
-    equal(a.env.PartyTargetWatchDB.shareFocus, false); equal(a.state.enabledCalls[#a.state.enabledCalls], false)
 end
 tests["public target markers update through eight values and clear"] = function()
     local a = boot(); a.state.markers.target = 1; a:load()
@@ -497,7 +494,7 @@ tests["secret marker sentinel is passed to native setter without Lua arithmetic"
 end
 tests["focus status changes cannot leave old names or marker icons"] = function()
     local a = boot({ showFocus = true }); a:load()
-    for _, state in ipairs({ "none", "pending", "restricted", "unavailable", "stale", "disabled" }) do
+    for _, state in ipairs({ "none", "pending", "restricted", "unavailable", "disabled" }) do
         a.state.focuses.player = { state = "ok", name = "之前的焦点", marker = 8 }; a:tick(0.21)
         equal(a:rows()[1].focus.text, "之前的焦点")
         a.state.focuses.player = { state = state }; a:tick(0.21)
@@ -505,27 +502,26 @@ tests["focus status changes cannot leave old names or marker icons"] = function(
         local icon = a:rows()[1].focusMarker
         assert(not icon.shown or icon.texture == nil, "stale focus icon for " .. state)
     end
-    -- Receiving public focus calls is independent of optional addon sync.
-    -- Toggling reception must not tell a chat-only user to enable sync.
-    equal(a:rows()[1].focus.text, "同步未开启")
-    a:command("settings"); a:click("接收队友的焦点通报"); a:tick(0.21)
-    equal(a.env.PartyTargetWatchDB.shareFocus, false)
+    equal(a:rows()[1].focus.text, "未开启接收")
+    a:command("settings"); a:click("接收队友的焦点通报")
+    -- The communication mock supplies each state; its reception lifecycle is
+    -- covered separately by the real Communication.lua tests.
+    a.state.focuses.player = { state = "pending" }; a:tick(0.21)
     equal(a:rows()[1].focus.text, "等待通报")
     a.state.focuses.player = { state = "declared", name = "训练假人", hasDeclaredName = true }; a:tick(0.21)
     equal(a:rows()[1].focus.text, "训练假人")
     a.state.focuses.player = { state = "disabled" }
     a:click("接收队友的焦点通报"); a:tick(0.21)
-    equal(a:rows()[1].focus.text, "同步未开启")
+    equal(a:rows()[1].focus.text, "未开启接收")
 end
 tests["reset lets communication setters observe active settings before defaulting"] = function()
-    local a = boot({ shareFocus = true, acceptFocusCalls = true }); a:load()
+    local a = boot({ acceptFocusCalls = true, declarationFormats = "自定义通报%name" }); a:load()
     a:command("settings"); a:click("恢复默认")
-    equal(a.env.PartyTargetWatchDB.shareFocus, false)
     equal(a.env.PartyTargetWatchDB.acceptFocusCalls, false)
-    equal(a.state.enabledCalls[#a.state.enabledCalls], false, "reset skipped sharing transition")
     equal(a.state.acceptCalls[#a.state.acceptCalls], false, "reset skipped declaration transition")
-    equal(a:button("插件间焦点同步（可选）"):GetChecked(), false)
     equal(a:button("接收队友的焦点通报"):GetChecked(), false)
+    equal(a.state.formatResetCalls, 1)
+    equal(a.namespace.Communication.GetDeclarationFormats(), a.state.defaultFormats)
 end
 tests["scene checkboxes immediately hide recover and stay synchronized after reset"] = function()
     local a = boot(); a:load(); a:command("settings")
@@ -562,16 +558,16 @@ tests["title drag saves position and lock prevents movement"] = function()
     a:command("lock"); handle.scripts.OnDragStart(handle); equal(a.frame.moving, false)
     a:command("unlock"); handle.scripts.OnDragStart(handle); equal(a.frame.moving, true)
 end
-tests["party focus comes from communication for the matching member token"] = function()
-    local a = boot({ showFocus = true, shareFocus = true }); a:load()
+tests["own readable focus and teammates chat declarations use the matching member token"] = function()
+    local a = boot({ showFocus = true, acceptFocusCalls = true }); a:load()
     a.state.group, a.state.count = true, 2
-    a.state.names.party1, a.state.names.party2 = "共享队员", "声明队员"
+    a.state.names.party1, a.state.names.party2 = "名称通报队员", "标记通报队员"
     a.state.focuses.player = { state = "ok", name = "本地焦点", marker = 8 }
-    a.state.focuses.party1 = { state = "ok", name = "队友共享焦点", marker = 4 }
+    a.state.focuses.party1 = { state = "declared", name = "队友通报的怪物", marker = 4, hasDeclaredName = true }
     a.state.focuses.party2 = { state = "declared", name = "星星", marker = 1 }
     a:event("GROUP_ROSTER_UPDATE"); a:tick(0.21)
     equal(a:rows()[1].focus.text, "本地焦点")
-    equal(a:rows()[2].focus.text, "队友共享焦点")
+    equal(a:rows()[2].focus.text, "队友通报的怪物")
     local declaration = a:rows()[3].focus.text
     assert(type(declaration) == "string" and declaration:find("星星", 1, true), "missing declared focus marker")
     assert(declaration:find("约定", 1, true) or declaration:find("声明", 1, true),

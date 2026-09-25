@@ -22,7 +22,7 @@ if not modules:
     raise SystemExit("TOC does not contain Lua modules")
 
 failures = []
-for test_path in (ROOT / "tests/test_addon.lua", ROOT / "tests/test_communication.lua"):
+for test_path in (ROOT / "tests/test_addon.lua", ROOT / "tests/test_communication.lua", ROOT / "tests/test_integration.lua"):
     if not test_path.exists():
         raise SystemExit(f"Missing required Lua suite: {test_path.name}")
     lua = LuaRuntime(unpack_returned_tuples=True)
@@ -33,6 +33,7 @@ for test_path in (ROOT / "tests/test_addon.lua", ROOT / "tests/test_communicatio
     lua.globals().ADDON_SOURCES = sources
     lua.globals().ADDON_SOURCE = (ADDON / "PartyTargetWatch.lua").read_text(encoding="utf-8-sig")
     lua.globals().COMMUNICATION_SOURCE = (ADDON / "Communication.lua").read_text(encoding="utf-8-sig")
+    lua.globals().INTEGRATION_SOURCE = (ADDON / "Integration.lua").read_text(encoding="utf-8-sig")
     print(f"Running {test_path.name} ({lua.eval('_VERSION')})", flush=True)
     try:
         lua.execute(test_path.read_text(encoding="utf-8-sig"))

@@ -16,7 +16,7 @@ local validPoints = { TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true,
 local defaults = { point = "CENTER", relativePoint = "CENTER", x = -320, y = 100,
     scale = 1, locked = false, hidden = false, showWorld = true, showResting = true,
     showDungeon = true, showRaid = true, showScenario = true, showBattleground = true,
-    showArena = true, showFocus = false, shareFocus = false, acceptFocusCalls = false,
+    showArena = true, showFocus = false, acceptFocusCalls = false,
     backgroundAlpha = 0.88 }
 local sceneSettings = { world = "showWorld", resting = "showResting", party = "showDungeon",
     raid = "showRaid", scenario = "showScenario", pvp = "showBattleground", arena = "showArena" }
@@ -37,6 +37,7 @@ function app.SyncSettings() if app.settings then app.settings.Sync() end end
 local function InitializeDB()
     if type(PartyTargetWatchDB) ~= "table" then PartyTargetWatchDB = {} end
     db, app.db = PartyTargetWatchDB, PartyTargetWatchDB
+    db.shareFocus = nil
     for key, value in pairs(defaults) do
         if IsSecret(db[key]) or type(db[key]) ~= type(value) then db[key] = value end
     end
@@ -107,7 +108,7 @@ local function UpdateMarker(texture, unit)
     local ok, index = pcall(GetRaidTargetIndex, unit)
     if ok then SetMarker(texture, index) end
 end
-local focusLabels = { disabled = "同步未开启", pending = "等待同步", stale = "同步已过期",
+local focusLabels = { disabled = "未开启接收", pending = "等待通报",
     none = "无焦点", restricted = "受游戏限制", unavailable = "不可用", offline = "离线" }
 local function UpdateFocus(row, unit)
     row.focusMarker:Hide()
@@ -119,8 +120,7 @@ local function UpdateFocus(row, unit)
         else row.focus:SetText("约定：" .. (focus.name or "未指定")) end
         row.focus:SetTextColor(1, 0.8, 0.35)
     elseif focus.name then row.focus:SetText(focus.name)
-    elseif focus.state == "disabled" and db.acceptFocusCalls then row.focus:SetText("等待通报")
-    else row.focus:SetText(focusLabels[focus.state] or "等待同步") end
+    else row.focus:SetText(focusLabels[focus.state] or "等待通报") end
     SetMarker(row.focusMarker, focus.marker)
 end
 local function UpdateRow(row, unit)
@@ -249,7 +249,7 @@ function app.RebuildRoster()
 end
 function app.TogglePreview() app.preview = not app.preview db.hidden = false app.RebuildRoster() end
 function app.Reset()
-    ns.Communication.SetEnabled(false) ns.Communication.SetAcceptCalls(false)
+    ns.Communication.SetAcceptCalls(false)
     ns.Communication.ResetDeclarationFormats()
     for key, value in pairs(defaults) do db[key] = value end
     app.preview = false
@@ -321,6 +321,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         InitializeDB() CreateUI() app.RestorePosition()
         initialized = true
         ns.Communication.Init(db, function() end)
+        ns.InitializeIntegration(app)
         self:UnregisterEvent("ADDON_LOADED")
         for _, name in ipairs({ "PLAYER_ENTERING_WORLD", "GROUP_ROSTER_UPDATE", "UNIT_TARGET",
             "PLAYER_TARGET_CHANGED", "UNIT_NAME_UPDATE", "UNIT_CONNECTION", "ZONE_CHANGED_NEW_AREA",

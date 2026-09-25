@@ -1,1 +1,1 @@
-Party targets and customizable focus-name or marker declarations from public chat, with optional public focus sharing. Simplified Chinese UI.
+Party targets and customizable focus-name or marker announcements received from public group chat. Simplified Chinese UI.
