@@ -9,7 +9,9 @@ local function boot(saved)
     local state = { group = false, raid = false, count = 0, instanceType = "none", resting = false,
         names = { player = "自己", target = "训练假人" }, offline = {}, errors = {}, secrets = {},
         markers = {}, focuses = {}, announcements = {}, nameCalls = 0, now = 0, secretTypes = {}, existsResults = {},
-        rosterRebuilds = 0, enabledCalls = {}, acceptCalls = {}, transmitted = {} }
+        rosterRebuilds = 0, enabledCalls = {}, acceptCalls = {}, transmitted = {}, messages = {}, statusCalls = 0,
+        formatSaveCalls = {}, formatTestCalls = {}, formatResetCalls = 0, formatClearCalls = 0, scrollingCalls = {},
+        defaultFormats = "我打断%mark\n我负责%mark" }
     local methods = {}
     local function object(kind, name, parent)
         local value = { kind = kind, name = name, parent = parent, shown = true,
@@ -42,7 +44,10 @@ local function boot(saved)
     function methods:GetEffectiveScale() return self.scale * (self.parent and self.parent:GetEffectiveScale() or 1) end
     function methods:SetAlpha(alpha) self.alpha = alpha end
     function methods:GetAlpha() return self.alpha end
-    function methods:SetText(text) self.text = text end
+    function methods:SetText(text)
+        self.text = text
+        if self.kind == "EditBox" and self.scripts.OnTextChanged then self.scripts.OnTextChanged(self, false) end
+    end
     function methods:GetText() return self.text end
     function methods:GetName() return self.name end
     function methods:GetParent() return self.parent end
@@ -54,6 +59,9 @@ local function boot(saved)
         self.spriteIndex, self.spriteColumns, self.spriteRows = index, columns, rows
     end
     function methods:SetTextColor(...) self.color = { ... } end
+    function methods:SetColorTexture(...) self.color = { ... } end
+    function methods:SetBackdropColor(...) self.backdropColor = { ... } end
+    function methods:SetBackdropBorderColor(...) self.borderColor = { ... } end
     function methods:Show()
         local changed = not self.shown
         self.shown = true
@@ -84,14 +92,32 @@ local function boot(saved)
     function methods:Enable() self.enabled = true end
     function methods:Disable() self.enabled = false end
     function methods:SetScrollChild(value) self.scrollChild = value end
+    function methods:SetVerticalScroll(value) self.verticalScroll = value end
+    function methods:GetVerticalScroll() return self.verticalScroll or 0 end
+    function methods:GetVerticalScrollRange() return math.max(0, (self.scrollChild and self.scrollChild.height or 0) - (self.height or 0)) end
+    function methods:SetMultiLine(value) self.multiLine = value end
+    function methods:SetMaxLetters(value) self.maxLetters = value end
+    function methods:SetMaxBytes(value) self.maxBytes = value end
+    function methods:SetAltArrowKeyMode(value) self.altArrowKeyMode = value end
+    function methods:SetCursorPosition(value) self.cursorPosition = value end
+    function methods:SetFocus() self.focused = true end
+    function methods:ClearFocus() self.focused = false end
+    function methods:EnableMouse(value) self.mouseEnabled = not not value end
+    function methods:GetNumLetters() return #(self.text or "") end
+    function methods:GetNumLines()
+        local _, count = (self.text or ""):gsub("\n", "")
+        return count + 1
+    end
     for _, name in ipairs({ "SetClampedToScreen", "SetMovable", "SetFrameStrata", "SetJustifyH", "SetWordWrap",
-        "SetAllPoints", "SetColorTexture", "SetBackdrop", "SetBackdropColor", "SetBackdropBorderColor",
-        "EnableMouse", "RegisterForDrag", "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetOrientation",
-        "SetAutoFocus", "SetMaxLetters", "ClearFocus", "SetFrameLevel", "SetJustifyV", "RegisterForClicks",
+        "SetAllPoints", "SetBackdrop",
+        "RegisterForDrag", "SetMinMaxValues", "SetValueStep", "SetObeyStepOnDrag", "SetOrientation",
+        "SetAutoFocus", "SetFrameLevel", "SetJustifyV", "RegisterForClicks",
         "SetNormalTexture", "SetPushedTexture", "SetHighlightTexture", "SetDisabledTexture", "SetFontObject",
-        "SetTextInsets", "SetNumeric", "EnableMouseWheel", "SetResizable", "SetResizeBounds" }) do methods[name] = function() end end
+        "SetTextInsets", "SetNumeric", "EnableMouseWheel", "SetResizable", "SetResizeBounds",
+        "UpdateScrollChildRect", "HighlightText", "SetCountInvisibleLetters" }) do methods[name] = function() end end
 
-    local env = setmetatable({ PartyTargetWatchDB = saved, SlashCmdList = {}, UISpecialFrames = {}, print = function() end }, { __index = _G })
+    local env = setmetatable({ PartyTargetWatchDB = saved, SlashCmdList = {}, UISpecialFrames = {},
+        print = function(message) state.messages[#state.messages + 1] = message end }, { __index = _G })
     env._G = env
     env.UIParent = object("Frame", "UIParent")
     env.UIParent:SetSize(1920, 1080)
@@ -142,6 +168,12 @@ local function boot(saved)
     env.SendChatMessage = function(...) state.transmitted[#state.transmitted + 1] = { ... } end
     env.C_ChatInfo = { RegisterAddonMessagePrefix = function() return true end,
         SendAddonMessage = function(...) state.transmitted[#state.transmitted + 1] = { ... } end }
+    for _, name in ipairs({ "ScrollingEdit_OnLoad", "ScrollingEdit_OnCursorChanged", "ScrollingEdit_OnTextChanged", "ScrollingEdit_OnUpdate" }) do
+        local handlerName = name
+        env[handlerName] = function(...)
+            state.scrollingCalls[#state.scrollingCalls + 1] = { name = handlerName, args = { ... } }
+        end
+    end
     local namespace = {}
     local communication = {
         Init = function(db, notify, onChanged) state.commDB, state.notify, state.onChanged = db, notify, onChanged end,
@@ -160,6 +192,32 @@ local function boot(saved)
             state.commDB.acceptFocusCalls = value
         end,
         Announce = function(unit) state.announcements[#state.announcements + 1] = unit; return true end,
+        GetAnnouncementStatus = function()
+            state.statusCalls = state.statusCalls + 1
+            return state.announcementStatus or { chatLocked = false, targetState = "none", ownerState = "ok" }
+        end,
+        GetDefaultDeclarationFormats = function() return state.defaultFormats end,
+        GetDeclarationFormats = function() return state.commDB.declarationFormats or state.defaultFormats end,
+        SetDeclarationFormats = function(text)
+            state.formatSaveCalls[#state.formatSaveCalls + 1] = text
+            if state.formatSaveError then return false, state.formatSaveError end
+            state.commDB.declarationFormats = state.formatSaveCanonical or text
+            state.formatClearCalls = state.formatClearCalls + 1
+            for unit, focus in pairs(state.focuses) do
+                if focus.state == "declared" then state.focuses[unit] = nil end
+            end
+            return true
+        end,
+        ResetDeclarationFormats = function()
+            state.formatResetCalls = state.formatResetCalls + 1
+            state.commDB.declarationFormats = nil
+            state.formatClearCalls = state.formatClearCalls + 1
+            return state.defaultFormats
+        end,
+        TestDeclarationMessage = function(message, draft)
+            state.formatTestCalls[#state.formatTestCalls + 1] = { message = message, draft = draft }
+            return state.formatTestMarker, state.formatTestLineOrError
+        end,
     }
     for _, module in ipairs(ADDON_SOURCES) do
         local chunk = assert(loadstring(module.source, "@" .. module.name))
@@ -181,6 +239,12 @@ local function boot(saved)
         end
     end
     function app:command(command) self.env.SlashCmdList.PARTYTARGETWATCH(command) end
+    function app:edit(name, text)
+        local box = assert(self.globals[name], "missing editor: " .. name)
+        assert(box:IsVisible(), "editor is not visible: " .. name)
+        box.text = text
+        if box.scripts.OnTextChanged then box.scripts.OnTextChanged(box, true) end
+    end
     function app:rows()
         local result = {}
         for _, child in ipairs(objects) do
@@ -524,6 +588,228 @@ tests["announcements require explicit button slash or key actions"] = function()
     a:click("通报目标"); a:command("announce"); a.env.PartyTargetWatch_AnnounceTarget()
     local demoRow = a:rows()[1]; demoRow.scripts.OnClick(demoRow, "LeftButton")
     equal(#a.state.announcements, 4, "preview must never announce fabricated targets")
+end
+tests["format editor opens from settings or slash without saving drafts"] = function()
+    local original = "第一路我打断%mark\n第二路我打断%mark"
+    local a = boot({ declarationFormats = original }); a:load(); a:command("hide"); a:command("settings")
+    a:click("通报格式…")
+    local panel, input = a.globals.PartyTargetWatchFormatSettings, a.globals.PartyTargetWatchFormatsInput
+    equal(panel:IsVisible(), true); equal(input:GetText(), original); equal(input.multiLine, true)
+    equal(input.cursorPosition, 0, "loading formats must reveal the beginning")
+    a:edit("PartyTargetWatchFormatsInput", "草稿我打断%mark")
+    input:SetCursorPosition(100)
+    equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
+    a:click("关闭"); equal(panel.shown, false)
+    equal(a.env.PartyTargetWatchDB.declarationFormats, original)
+    a:command("formats"); equal(panel:IsVisible(), true); equal(input:GetText(), original)
+    equal(input.cursorPosition, 0, "reopening must reset the old cursor position")
+    equal(#a.state.formatSaveCalls, 0); equal(#a.state.transmitted, 0)
+end
+tests["format drafts survive main settings sync roster and scene updates"] = function()
+    local original, draft = "已有格式%mark", "还未保存%mark\n另一个草稿%mark"
+    local a = boot({ declarationFormats = original }); a:load(); a:command("settings"); a:command("formats")
+    a:edit("PartyTargetWatchFormatsInput", draft)
+    a:edit("PartyTargetWatchFormatSample", "还未保存星星")
+    a.namespace.App.SyncSettings()
+    a:command("formats")
+    a:event("GROUP_ROSTER_UPDATE")
+    a:scenario("party", false, "ZONE_CHANGED_NEW_AREA")
+    a:scenario("none", true, "PLAYER_UPDATE_RESTING")
+    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), draft)
+    equal(a.globals.PartyTargetWatchFormatSample:GetText(), "还未保存星星")
+    equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
+end
+tests["format save rejection preserves active formats declarations and draft"] = function()
+    local original, draft = "现有格式%mark", "无占位符的无效格式"
+    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
+    a.state.focuses.party1 = { state = "declared", name = "星星", marker = 1 }
+    a.state.formatSaveError = "第1行：必须包含一个%mark占位符。"
+    a:edit("PartyTargetWatchFormatsInput", draft); a:click("保存格式")
+    equal(a.state.formatSaveCalls[1], draft)
+    equal(a.env.PartyTargetWatchDB.declarationFormats, original)
+    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), draft)
+    equal(a.state.focuses.party1.state, "declared"); equal(a.state.formatClearCalls, 0)
+    assert(a.globals.PartyTargetWatchFormatSettings.status:GetText():find(a.state.formatSaveError, 1, true),
+        "save failure must show the validation reason")
+end
+tests["twenty format lines save atomically persist and clear old declarations"] = function()
+    local a = boot({ declarationFormats = "旧格式%mark" }); a:load(); a:command("formats")
+    local lines = {}
+    for i = 1, 20 do lines[i] = "interrupt-route-" .. i .. "-%mark" end
+    local formats = table.concat(lines, "\n")
+    local input = a.globals.PartyTargetWatchFormatsInput
+    assert(not input.maxLetters or input.maxLetters == 0 or input.maxLetters >= #formats,
+        "editor maximum length cannot accommodate twenty ordinary format lines")
+    a.state.focuses.party1 = { state = "declared", name = "月亮", marker = 5 }
+    a:edit("PartyTargetWatchFormatsInput", formats); a:click("保存格式")
+    equal(#a.state.formatSaveCalls, 1); equal(a.state.formatSaveCalls[1], formats)
+    equal(a.env.PartyTargetWatchDB.declarationFormats, formats)
+    equal(a.state.focuses.party1, nil); equal(a.state.formatClearCalls, 1)
+    equal(#a.state.announcements, 0); equal(#a.state.transmitted, 0)
+    local b = boot(a.env.PartyTargetWatchDB); b:load(); b:command("formats")
+    equal(b.globals.PartyTargetWatchFormatsInput:GetText(), formats)
+end
+tests["format matching previews unsaved drafts and shows marker line or failure"] = function()
+    local original, draft = "原格式%mark", "第一行%mark\n第二行%mark"
+    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
+    a:edit("PartyTargetWatchFormatsInput", draft); a:edit("PartyTargetWatchFormatSample", "第二行三角")
+    a.state.formatTestMarker, a.state.formatTestLineOrError = 4, 2
+    a:click("测试匹配")
+    equal(#a.state.formatTestCalls, 1)
+    equal(a.state.formatTestCalls[1].message, "第二行三角"); equal(a.state.formatTestCalls[1].draft, draft)
+    local status = a.globals.PartyTargetWatchFormatSettings.status:GetText()
+    assert(status:find("三角", 1, true) and status:find("第%s*2%s*条格式"), "preview omitted marker or source format index")
+    a.state.formatTestMarker, a.state.formatTestLineOrError = nil, "没有匹配的格式。"
+    a:edit("PartyTargetWatchFormatSample", "无匹配消息"); a:click("测试匹配")
+    assert(a.globals.PartyTargetWatchFormatSettings.status:GetText():find("没有匹配的格式。", 1, true),
+        "failed test must replace the prior successful status")
+    equal(a.env.PartyTargetWatchDB.declarationFormats, original); equal(#a.state.formatSaveCalls, 0)
+    equal(a.state.formatClearCalls, 0); equal(#a.state.announcements, 0); equal(#a.state.transmitted, 0)
+end
+tests["restore built-in formats changes only draft until save"] = function()
+    local original = "私人格式%mark"
+    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
+    a:edit("PartyTargetWatchFormatsInput", "未存草稿%mark"); a:click("恢复内置格式")
+    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), a.state.defaultFormats)
+    equal(a.env.PartyTargetWatchDB.declarationFormats, original)
+    equal(#a.state.formatSaveCalls, 0); equal(a.state.formatResetCalls, 0); equal(a.state.formatClearCalls, 0)
+    a:click("关闭"); a:command("formats")
+    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), original)
+    a:click("恢复内置格式"); a:click("保存格式")
+    equal(a.env.PartyTargetWatchDB.declarationFormats, a.state.defaultFormats)
+    equal(a.state.formatClearCalls, 1)
+end
+tests["global reset resets saved declaration formats through communication"] = function()
+    local a = boot({ declarationFormats = "原先自定义%mark" }); a:load(); a:command("formats")
+    a:edit("PartyTargetWatchFormatsInput", "新的未存草稿%mark"); a:command("reset")
+    equal(a.state.formatResetCalls, 1); equal(a.state.formatClearCalls, 1)
+    equal(a.namespace.Communication.GetDeclarationFormats(), a.state.defaultFormats)
+    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), "新的未存草稿%mark")
+    if a.globals.PartyTargetWatchFormatSettings:IsShown() then a:click("关闭") end
+    a:command("formats")
+    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), a.state.defaultFormats)
+    equal(#a.state.formatSaveCalls, 0)
+end
+tests["literal pipes in format drafts and test messages round trip unchanged"] = function()
+    local original = "前|后%mark\n包含||双线%mark"
+    local a = boot({ declarationFormats = original }); a:load(); a:command("formats")
+    local input = a.globals.PartyTargetWatchFormatsInput
+    equal(input:GetText(), (original:gsub("|", "||")), "load must escape pipe markup")
+    a:click("保存格式")
+    equal(a.state.formatSaveCalls[1], original); equal(a.env.PartyTargetWatchDB.declarationFormats, original)
+    a:click("关闭"); a:command("formats")
+    equal(input:GetText(), (original:gsub("|", "||")))
+    local draft, message = "甲|乙%mark\n丙||丁%mark", "甲|乙三角"
+    a:edit("PartyTargetWatchFormatsInput", (draft:gsub("|", "||")))
+    a:edit("PartyTargetWatchFormatSample", (message:gsub("|", "||")))
+    a.state.formatTestMarker, a.state.formatTestLineOrError = 4, 1
+    a:click("测试匹配")
+    equal(a.state.formatTestCalls[1].message, message); equal(a.state.formatTestCalls[1].draft, draft)
+    a:click("保存格式")
+    equal(a.state.formatSaveCalls[2], draft); equal(a.env.PartyTargetWatchDB.declarationFormats, draft)
+    equal(#a.state.transmitted, 0)
+end
+tests["successful format save reloads normalized text without losing literal pipes"] = function()
+    local a = boot(); a:load(); a:command("formats")
+    local raw, canonical = "  原|格式%mark  \n\n 第二||格式%mark ", "原|格式%mark\n第二||格式%mark"
+    a.state.formatSaveCanonical = canonical
+    a:edit("PartyTargetWatchFormatsInput", (raw:gsub("|", "||"))); a:click("保存格式")
+    equal(a.state.formatSaveCalls[1], raw, "UI must let the parser normalize original input")
+    equal(a.env.PartyTargetWatchDB.declarationFormats, canonical)
+    equal(a.globals.PartyTargetWatchFormatsInput:GetText(), (canonical:gsub("|", "||")))
+end
+tests["format edit box delegates scrolling to native handlers"] = function()
+    local a = boot({ declarationFormats = "" }); a:load(); a:command("formats")
+    local input = a.globals.PartyTargetWatchFormatsInput
+    local scroll = input.parent
+    equal(input:GetText(), ""); equal(scroll.mouseEnabled, true)
+    assert(scroll.scripts.OnMouseDown, "empty scroll area needs a focus handler")
+    scroll.scripts.OnMouseDown(scroll, "LeftButton")
+    equal(input.focused, true, "clicking blank editor space should focus the empty input")
+    a:edit("PartyTargetWatchFormatsInput", "第一条%mark\n第二条%mark")
+    assert(input.scripts.OnCursorChanged, "missing cursor scrolling handler")
+    input.scripts.OnCursorChanged(input, 4, -300, 1, 14)
+    a:tick(0.016)
+    local called = {}
+    for _, call in ipairs(a.state.scrollingCalls) do
+        if call.args[1] == input then
+            called[call.name] = true
+            if call.name == "ScrollingEdit_OnTextChanged" then
+                assert(call.args[2] == input.parent, "text handler received userInput instead of its ScrollFrame")
+            elseif call.name == "ScrollingEdit_OnUpdate" then
+                assert(call.args[3] == input.parent, "update handler is missing its ScrollFrame")
+            end
+        end
+    end
+    for _, name in ipairs({ "ScrollingEdit_OnLoad", "ScrollingEdit_OnTextChanged", "ScrollingEdit_OnCursorChanged", "ScrollingEdit_OnUpdate" }) do
+        assert(called[name], "editor did not delegate to " .. name)
+    end
+    -- Geometry is deliberately not simulated: native text layout and scrolling
+    -- still require game-client verification, even when callbacks are correct.
+end
+tests["background alpha zero persists and only affects background layers"] = function()
+    local a = boot({ backgroundAlpha = 0 }); a:load(); a:command("settings")
+    equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0); equal(a.frame.backdropColor[4], 0)
+    equal(a.frame.borderColor[4], 0); equal(a.frame.alpha, 1)
+    a.state.group, a.state.count, a.state.names.party1 = true, 1, "透明队员"
+    a:event("GROUP_ROSTER_UPDATE")
+    for _, row in ipairs(a:rows()) do
+        equal((row.background.color[4] or 1) * row.background.alpha, 0)
+        equal(row.member.alpha, 1); equal(row.target.alpha, 1); equal(row.targetMarker.alpha, 1)
+        equal(row.member.color[4] or 1, 1); equal(row.target.color[4] or 1, 1)
+    end
+    a.globals.PartyTargetWatchBackgroundAlphaSlider:SetValue(1)
+    equal(a.env.PartyTargetWatchDB.backgroundAlpha, 1); equal(a.frame.backdropColor[4], 1)
+    assert(a.frame.borderColor[4] > 0)
+    assert(a:rows()[2].background.color[4] * a:rows()[2].background.alpha > 0)
+    equal(a.frame.alpha, 1); equal(a:rows()[2].target.alpha, 1)
+    a.globals.PartyTargetWatchBackgroundAlphaSlider:SetValue(0)
+    a:scenario("party", false); equal(a.frame.backdropColor[4], 0); equal(a.frame.borderColor[4], 0)
+    local b = boot(a.env.PartyTargetWatchDB); b:load()
+    equal(b.env.PartyTargetWatchDB.backgroundAlpha, 0); equal(b.frame.backdropColor[4], 0)
+end
+tests["background alpha invalid values and global reset restore default"] = function()
+    for _, value in ipairs({ -0.1, 1.1, 0/0, math.huge, "0.5", {} }) do
+        local a = boot({ backgroundAlpha = value }); a:load()
+        equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0.88); equal(a.frame.backdropColor[4], 0.88)
+    end
+    local a = boot({ backgroundAlpha = 0.4 }); a:load(); a:command("settings")
+    equal(a.globals.PartyTargetWatchBackgroundAlphaSlider:GetValue(), 0.4)
+    a:click("恢复默认")
+    equal(a.env.PartyTargetWatchDB.backgroundAlpha, 0.88); equal(a.frame.backdropColor[4], 0.88)
+    equal(a.globals.PartyTargetWatchBackgroundAlphaSlider:GetValue(), 0.88)
+end
+tests["status command distinguishes public restriction reasons without exposing names or changing settings"] = function()
+    local a = boot({ backgroundAlpha = 0.4, declarationFormats = "已有格式%mark", hidden = true })
+    a.state.names.player, a.state.names.target = "不应出现在诊断中的玩家名", "不应出现在诊断中的目标名"
+    a:load()
+    local snapshot, calls = {}, a.state.nameCalls
+    for key, value in pairs(a.env.PartyTargetWatchDB) do snapshot[key] = value end
+    local cases = {
+        { { channel = "PARTY", chatLocked = false, targetState = "restricted", ownerState = "ok", targetNameSecret = true },
+            { "频道=小队", "聊天锁定=否", "当前目标=名称受限", "自身名称=可读" } },
+        { { channel = "INSTANCE_CHAT", chatLocked = true, targetState = "ok", ownerState = "ok" },
+            { "频道=副本队伍", "聊天锁定=是", "当前目标=可读", "自身名称=可读" } },
+        { { channel = "RAID", chatLocked = false, targetState = "restricted", ownerState = "restricted",
+            targetExistsSecret = true, ownerNameSecret = true },
+            { "频道=团队", "聊天锁定=否", "当前目标=存在性受限", "自身名称=名称受限" } },
+        { { chatLocked = false, targetState = "none", ownerState = "restricted", ownerExistsSecret = true },
+            { "频道=未组队", "聊天锁定=否", "当前目标=无目标", "自身名称=存在性受限" } },
+    }
+    for index, case in ipairs(cases) do
+        a.state.announcementStatus = case[1]
+        local prior = #a.state.messages
+        a:command("status")
+        equal(a.state.statusCalls, index); equal(#a.state.messages, prior + 1, "diagnostics should print one local line")
+        local message = a.state.messages[#a.state.messages]
+        for _, expected in ipairs(case[2]) do assert(message:find(expected, 1, true), "missing diagnostic: " .. expected) end
+        assert(not message:find(a.state.names.player, 1, true) and not message:find(a.state.names.target, 1, true),
+            "diagnostics exposed a real unit name")
+    end
+    for key, value in pairs(snapshot) do equal(a.env.PartyTargetWatchDB[key], value, "status mutated setting " .. key) end
+    for key, value in pairs(a.env.PartyTargetWatchDB) do equal(value, snapshot[key], "status added setting " .. key) end
+    equal(a.state.nameCalls, calls, "UI diagnostics should use only the public status structure")
+    equal(#a.state.transmitted, 0); equal(#a.state.announcements, 0); equal(a.frame:IsShown(), false)
 end
 local count, names, failures = 0, {}, {}
 for name in pairs(tests) do names[#names + 1] = name end

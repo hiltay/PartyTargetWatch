@@ -103,12 +103,12 @@ end
 local function ReadUnit(unit)
     local ok, exists = pcall(UnitExists, unit)
     if not ok then return { state = "unavailable" } end
-    if Secret(exists) then return { state = "restricted" } end
+    if Secret(exists) then return { state = "restricted", reason = "unit_exists_secret" } end
     if type(exists) ~= "boolean" then return { state = "unavailable" } end
     if not exists then return { state = "none" } end
     local nameOK, name = pcall(UnitName, unit)
     if not nameOK then return { state = "unavailable" } end
-    if Secret(name) then return { state = "restricted" } end
+    if Secret(name) then return { state = "restricted", reason = "unit_name_secret" } end
     name = CleanName(name)
     if not name then return { state = "unavailable" } end
     local marker
@@ -240,15 +240,150 @@ local chatEvents = {
     CHAT_MSG_INSTANCE_CHAT = true, CHAT_MSG_INSTANCE_CHAT_LEADER = true,
 }
 local markerNames = { "星星", "圆圈", "菱形", "三角", "月亮", "方块", "叉叉", "骷髅" }
-local declarationPhrases = {}
-for marker, name in ipairs(markerNames) do declarationPhrases["我打断" .. name] = marker end
+local DEFAULT_FORMATS = "我打断%mark\n我的焦点打断是 {rt%mark}"
+local MAX_FORMATS, MAX_FORMAT_LINE, MAX_FORMAT_BYTES = 20, 255, 8192
+
+local function CompileFormats(text)
+    if Secret(text) or type(text) ~= "string" then return nil, "格式错误：模板必须是文本。" end
+    if #text > MAX_FORMAT_BYTES then return nil, "格式错误：全部模板最多 8192 字节。" end
+    local lines, compiled, lineNumber = {}, {}, 0
+    text = text:gsub("\r\n", "\n"):gsub("\r", "\n")
+    for raw in (text .. "\n"):gmatch("(.-)\n") do
+        lineNumber = lineNumber + 1
+        local line = raw:match("^[ \t]*(.-)[ \t]*$")
+        if line ~= "" then
+            local function Invalid(reason)
+                return nil, "格式错误：第 " .. lineNumber .. " 行" .. reason
+            end
+            if #compiled >= MAX_FORMATS then return Invalid("超过 20 个非空模板的上限。") end
+            if #line > MAX_FORMAT_LINE then return Invalid("超过 255 字节。") end
+            if line:find("%c") then return Invalid("含有控制字符。") end
+            local tokens, literal, marks, texts, pos = {}, {}, 0, 0, 1
+            local function FlushLiteral()
+                if #literal > 0 then
+                    tokens[#tokens + 1] = { kind = "literal", value = table.concat(literal) }
+                    literal = {}
+                end
+            end
+            while pos <= #line do
+                local token, width, wrapped
+                if line:sub(pos, pos + 8) == "{rt%mark}" then
+                    token, width, wrapped = "mark", 9, true
+                elseif line:sub(pos, pos) == "%" then
+                    -- Recognize only our named placeholders. All other text,
+                    -- including Lua pattern punctuation and a plain %, is literal.
+                    token = line:sub(pos):match("^%%([A-Za-z]+)")
+                    if token and token ~= "mark" and token ~= "text" then
+                        return Invalid("含有未知占位符 %" .. token .. "。")
+                    end
+                    if token then width = #token + 1 end
+                end
+                if token then
+                    FlushLiteral()
+                    tokens[#tokens + 1] = { kind = token, wrapped = wrapped }
+                    if token == "mark" then marks = marks + 1 else texts = texts + 1 end
+                    pos = pos + width
+                else
+                    literal[#literal + 1] = line:sub(pos, pos)
+                    pos = pos + 1
+                end
+            end
+            FlushLiteral()
+            if marks ~= 1 then return Invalid("必须恰好包含一个 %mark。") end
+            if texts > 2 then return Invalid("最多包含两个 %text。") end
+            lines[#lines + 1], compiled[#compiled + 1] = line, tokens
+        end
+    end
+    return table.concat(lines, "\n"), compiled
+end
+
+local declarationFormats, declarationTemplates = CompileFormats(DEFAULT_FORMATS)
+
+local function MatchesTokens(message, tokens, markText, wrappedText)
+    -- A small literal/wildcard automaton avoids executing user-supplied Lua
+    -- patterns and avoids greedy captures mistaking text for the marker.
+    local positions, limit = { [1] = true }, #message + 1
+    for _, token in ipairs(tokens) do
+        local nextPositions = {}
+        if token.kind == "text" then
+            local canEnd = false
+            for pos = 1, limit do
+                if canEnd then nextPositions[pos] = true end
+                if positions[pos] then canEnd = true end
+            end
+        else
+            local value = token.kind == "mark" and (token.wrapped and wrappedText or markText) or token.value
+            for pos in pairs(positions) do
+                if message:sub(pos, pos + #value - 1) == value then nextPositions[pos + #value] = true end
+            end
+        end
+        positions = nextPositions
+    end
+    return positions[limit] == true
+end
+
+local function MatchDeclaration(message, templates)
+    if Secret(message) or type(message) ~= "string" then return nil, "未匹配：消息不可读取。" end
+    if #message == 0 or #message > 255 or message:find("%c") then return nil, "未匹配：消息为空、过长或含控制字符。" end
+    for line, tokens in ipairs(templates) do
+        local matched
+        for marker, name in ipairs(markerNames) do
+            local number, raidToken = tostring(marker), "{rt" .. marker .. "}"
+            for _, value in ipairs({ number, name, raidToken }) do
+                if MatchesTokens(message, tokens, value, raidToken) then
+                    if matched and matched ~= marker then return nil, "存在歧义：第 " .. line .. " 行可匹配不同标记。" end
+                    matched = marker
+                    break
+                end
+            end
+        end
+        if matched then return matched, line end
+    end
+    return nil, "未匹配：没有模板与整句消息匹配。"
+end
+
+function Communication.GetDefaultDeclarationFormats()
+    return DEFAULT_FORMATS
+end
+
+function Communication.GetDeclarationFormats()
+    return declarationFormats
+end
+
+function Communication.SetDeclarationFormats(text)
+    local normalized, templates = CompileFormats(text)
+    if not normalized then return false, templates end
+    if not db then return false, "格式错误：插件尚未初始化。" end
+    declarationFormats, declarationTemplates = normalized, templates
+    db.declarationFormats = normalized
+    declarations = {}
+    Changed()
+    return true
+end
+
+function Communication.ResetDeclarationFormats()
+    Communication.SetDeclarationFormats(DEFAULT_FORMATS)
+    return DEFAULT_FORMATS
+end
+
+function Communication.TestDeclarationMessage(message, draftFormats)
+    local templates = declarationTemplates
+    if Secret(message) or type(message) ~= "string" then return nil, "未匹配：消息不可读取。" end
+    if Secret(draftFormats) then return nil, "格式错误：模板不可读取。" end
+    if draftFormats ~= nil then
+        local normalized, temporary = CompileFormats(draftFormats)
+        if not normalized then return nil, temporary end
+        templates = temporary
+    end
+    return MatchDeclaration(message, templates)
+end
 
 local function ReceiveDeclaration(message, sender)
     if not db or not db.acceptFocusCalls or not Channel() then return end
     -- These events may carry engine secrets during chat lockdown. Test every
     -- value before type, length, equality, parsing, or identity normalization.
     if Secret(message) or Secret(sender) then return end
-    if type(message) ~= "string" or #message > 64 then return end
+    if type(message) ~= "string" or #message > 255 then return end
     local id = Identity(sender)
     if not id or not members[id] then return end
     if message == "取消打断" then
@@ -256,11 +391,7 @@ local function ReceiveDeclaration(message, sender)
         Changed()
         return
     end
-    local marker = declarationPhrases[message]
-    if not marker then
-        local value = message:match("^我打断{rt([1-8])}$")
-        if value then marker = tonumber(value) end
-    end
+    local marker = MatchDeclaration(message, declarationTemplates)
     if not marker then return end
     declarations[id] = { marker = marker, receivedAt = Now() }
     Changed()
@@ -289,6 +420,10 @@ function Communication.Init(settings, report, changed)
     db, notify, onChanged = settings, report, changed
     db.shareFocus = db.shareFocus == true
     db.acceptFocusCalls = db.acceptFocusCalls == true
+    local formats, templates = CompileFormats(db.declarationFormats)
+    if not formats then formats, templates = CompileFormats(DEFAULT_FORMATS) end
+    declarationFormats, declarationTemplates, db.declarationFormats = formats, templates, formats
+    declarations = {}
     prefixReady = false
     if C_ChatInfo and type(C_ChatInfo.RegisterAddonMessagePrefix) == "function" then
         local ok, result = pcall(C_ChatInfo.RegisterAddonMessagePrefix, PREFIX)
@@ -305,7 +440,17 @@ function Communication.Init(settings, report, changed)
             if event == "CHAT_MSG_ADDON" then Receive(...)
             elseif chatEvents[event] then ReceiveDeclaration(...)
             elseif event == "ADDON_RESTRICTION_STATE_CHANGED" then
-                restrictionPending = true
+                local restrictionType, state = ...
+                if Secret(restrictionType) or Secret(state) then return end
+                local chatType = Enum and Enum.AddOnRestrictionType and Enum.AddOnRestrictionType.Chat or 5
+                local states = Enum and Enum.AddOnRestrictionState
+                local inactive, activating, active = states and states.Inactive or 0,
+                    states and states.Activating or 1, states and states.Active or 2
+                -- Combat/Map restriction events alone are not chat lockdown.
+                if restrictionType ~= chatType then return end
+                if state == inactive then restrictionPending = false
+                elseif state == activating or state == active then restrictionPending = true
+                else return end
                 received = {}
                 stateDirty = true
                 Changed()
@@ -373,9 +518,26 @@ end
 
 local messages = {
     solo = "未组队，无法通报。", throttle = "通报过于频繁，请稍后再试。",
-    restricted = "当前信息受游戏限制，无法通报。", unavailable = "当前目标信息不可用，无法通报。",
+    chat_locked = "当前聊天受游戏限制，无法通报；脱战不一定解除场景内的聊天限制。",
+    target_restricted = "目标信息受保护；即使界面能显示名称，也不能读取或拼接为聊天文字。",
+    owner_restricted = "成员信息受保护，无法拼接成员名称进行通报。",
+    unavailable = "当前目标信息不可用，无法通报。",
     none = "当前没有可通报的目标。", failed = "通报发送失败；请检查聊天权限和游戏限制。",
 }
+
+function Communication.GetAnnouncementStatus()
+    local target, owner = ReadUnit("target"), ReadUnit("player")
+    -- Report only public classifications. False secret flags mean no secret
+    -- was observed; a restricted UnitExists prevents querying the name.
+    return {
+        channel = Channel(), chatLocked = Lockdown(),
+        targetState = target.state, ownerState = owner.state,
+        targetExistsSecret = target.reason == "unit_exists_secret",
+        targetNameSecret = target.reason == "unit_name_secret",
+        ownerExistsSecret = owner.reason == "unit_exists_secret",
+        ownerNameSecret = owner.reason == "unit_name_secret",
+    }
+end
 
 function Communication.Announce(unit)
     local function Fail(reason)
@@ -384,14 +546,16 @@ function Communication.Announce(unit)
     end
     local channel = Channel()
     if not channel then return Fail("solo") end
-    if Lockdown() then return Fail("restricted") end
+    if Lockdown() then return Fail("chat_locked") end
     if Now() < nextChat then return Fail("throttle") end
     if unit == nil or unit == "target" then unit = "player" end
     if type(unit) ~= "string" or (unit ~= "player" and not byUnit[unit]) then return Fail("unavailable") end
     if PublicFlag(UnitIsConnected, unit) == false then return Fail("unavailable") end
     local target = ReadUnit(unit == "player" and "target" or unit .. "target")
+    if target.state == "restricted" then return Fail("target_restricted") end
     if target.state ~= "ok" then return Fail(target.state) end
     local owner = ReadUnit(unit)
+    if owner.state == "restricted" then return Fail("owner_restricted") end
     if owner.state ~= "ok" then return Fail(owner.state) end
     local marker = target.marker and ("{rt" .. target.marker .. "} ") or ""
     local text = "[PTW] 请集火：" .. marker .. target.name .. "（" .. owner.name .. "的目标）"

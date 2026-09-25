@@ -16,7 +16,8 @@ local validPoints = { TOPLEFT = true, TOP = true, TOPRIGHT = true, LEFT = true,
 local defaults = { point = "CENTER", relativePoint = "CENTER", x = -320, y = 100,
     scale = 1, locked = false, hidden = false, showWorld = true, showResting = true,
     showDungeon = true, showRaid = true, showScenario = true, showBattleground = true,
-    showArena = true, showFocus = false, shareFocus = false, acceptFocusCalls = false }
+    showArena = true, showFocus = false, shareFocus = false, acceptFocusCalls = false,
+    backgroundAlpha = 0.88 }
 local sceneSettings = { world = "showWorld", resting = "showResting", party = "showDungeon",
     raid = "showRaid", scenario = "showScenario", pvp = "showBattleground", arena = "showArena" }
 local sceneLabels = { world = "野外", resting = "主城/旅店（休息区）", party = "地下城",
@@ -44,6 +45,15 @@ local function InitializeDB()
     if not app.ValidNumber(db.x, -10000, 10000) then db.x = defaults.x end
     if not app.ValidNumber(db.y, -10000, 10000) then db.y = defaults.y end
     if not app.ValidNumber(db.scale, 0.6, 2) then db.scale = defaults.scale end
+    if not app.ValidNumber(db.backgroundAlpha, 0, 1) then db.backgroundAlpha = defaults.backgroundAlpha end
+end
+function app.ApplyAppearance()
+    -- Only background surfaces fade; readable text/icons retain their opacity.
+    frame:SetBackdropColor(0.035, 0.055, 0.075, db.backgroundAlpha)
+    frame:SetBackdropBorderColor(0.18, 0.4, 0.43, db.backgroundAlpha)
+    for index, row in ipairs(app.rows) do
+        row.background:SetColorTexture(1, 1, 1, index % 2 == 0 and 0.05 * db.backgroundAlpha or 0)
+    end
 end
 function app.RestorePosition()
     frame:ClearAllPoints()
@@ -152,6 +162,20 @@ function app.Announce(unit)
     if app.preview then app.Message("示例预览不能通报；请先结束预览。") return end
     ns.Communication.Announce(unit or "player")
 end
+function app.ShowAnnouncementStatus()
+    local status = ns.Communication.GetAnnouncementStatus()
+    local channelNames = { PARTY = "小队", RAID = "团队", INSTANCE_CHAT = "副本队伍" }
+    local function StateText(state, existsSecret, nameSecret)
+        if existsSecret then return "存在性受限" end
+        if nameSecret then return "名称受限" end
+        if state == "ok" then return "可读" end
+        return ({ none = "无目标", restricted = "受限", unavailable = "不可用" })[state] or "未知"
+    end
+    app.Message("通报诊断：频道=" .. (channelNames[status.channel] or "未组队")
+        .. "；聊天锁定=" .. (status.chatLocked and "是" or "否")
+        .. "；当前目标=" .. StateText(status.targetState, status.targetExistsSecret, status.targetNameSecret)
+        .. "；自身名称=" .. StateText(status.ownerState, status.ownerExistsSecret, status.ownerNameSecret))
+end
 function PartyTargetWatch_AnnounceTarget() if initialized then app.Announce("player") end end
 BINDING_HEADER_PARTYTARGETWATCH = "PartyTargetWatch 队友目标"
 BINDING_NAME_PARTYTARGETWATCH_ANNOUNCE = "向队伍通报我的当前目标"
@@ -165,7 +189,7 @@ local function CreateRow(index)
     local row = CreateFrame("Button", nil, frame)
     row.background = row:CreateTexture(nil, "BACKGROUND")
     row.background:SetAllPoints()
-    row.background:SetColorTexture(1, 1, 1, index % 2 == 0 and 0.045 or 0)
+    row.background:SetColorTexture(1, 1, 1, index % 2 == 0 and 0.05 * db.backgroundAlpha or 0)
     row:SetHighlightTexture("Interface\\QuestFrame\\UI-QuestTitleHighlight", "ADD")
     row.member = app.NewText(row, "GameFontHighlight")
     row.member:SetPoint("LEFT", 6, 0) row.member:SetWidth(126)
@@ -245,13 +269,23 @@ end
 function app.TogglePreview() app.preview = not app.preview db.hidden = false app.RebuildRoster() end
 function app.Reset()
     ns.Communication.SetEnabled(false) ns.Communication.SetAcceptCalls(false)
+    ns.Communication.ResetDeclarationFormats()
     for key, value in pairs(defaults) do db[key] = value end
     app.preview = false
-    app.RestorePosition() app.RebuildRoster()
+    app.RestorePosition() app.ApplyAppearance() app.RebuildRoster()
+    -- Reset saved formats without silently saving or replacing an open draft.
+    if app.formatSettings and app.formatSettings:IsShown() then
+        app.formatSettings.status:SetText("已恢复保存的内置格式；此处草稿未保存，关闭后重新打开可查看。")
+    end
 end
 function app.ShowSettings()
     if not app.settings then app.settings = ns.CreateSettings(app) end
     app.settings:Show() app.SyncSettings()
+end
+function app.ShowFormats()
+    if not app.formatSettings then app.formatSettings = ns.CreateFormatSettings(app) end
+    if not app.formatSettings:IsShown() then app.formatSettings.LoadSaved() end
+    app.formatSettings:Show()
 end
 local function NewButton(text, width, left, callback)
     local button = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
@@ -261,7 +295,7 @@ local function NewButton(text, width, left, callback)
 end
 local function CreateUI()
     frame:SetBackdrop({ bgFile = "Interface\\Buttons\\WHITE8X8", edgeFile = "Interface\\Buttons\\WHITE8X8", edgeSize = 1 })
-    frame:SetBackdropColor(0.035, 0.055, 0.075, 0.88) frame:SetBackdropBorderColor(0.18, 0.4, 0.43, 0.9)
+    app.ApplyAppearance()
     local handle = CreateFrame("Frame", nil, frame)
     handle:SetPoint("TOPLEFT", 0, 0) handle:SetPoint("TOPRIGHT", 0, 0) handle:SetHeight(32)
     handle:EnableMouse(true) handle:RegisterForDrag("LeftButton")
@@ -283,6 +317,8 @@ local function HandleCommand(message)
     local command, argument = (message or ""):match("^%s*(%S*)%s*(.-)%s*$")
     command = command:lower()
     if command == "settings" or command == "config" then app.ShowSettings() return
+    elseif command == "formats" then app.ShowFormats() return
+    elseif command == "status" then app.ShowAnnouncementStatus() return
     elseif command == "announce" then app.Announce("player") return
     elseif command == "hide" then db.hidden = true
     elseif command == "show" or command == "" then db.hidden = false app.preview = false
@@ -294,7 +330,7 @@ local function HandleCommand(message)
         if not app.ValidNumber(scale, 0.6, 2) then app.Message("缩放范围：/ptw scale 0.6 到 2") return end
         db.scale = scale app.RestorePosition()
     else
-        app.Message("/ptw settings 设置；announce 通报当前目标；show 显示；hide 隐藏；unlock 解锁拖动；lock 锁定；test 示例预览；reset 重置；scale 1 缩放。")
+        app.Message("/ptw settings 设置；formats 通报格式；status 通报诊断；announce 通报当前目标；show 显示；hide 隐藏；unlock 解锁拖动；lock 锁定；test 示例预览；reset 重置；scale 1 缩放。")
         return
     end
     app.RebuildRoster()

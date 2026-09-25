@@ -46,3 +46,31 @@ WoW addon 的受支持 Lua API 没有任意 HTTP/socket 客户端接口。暴雪
 `Bindings.xml` 保留在插件根目录，由客户端独立发现和加载，不在插件 `.toc` 中列出。文件使用 `<Bindings>` 根元素及 `<Binding name="…" header="…" category="ADDONS">` 子元素，内部填写按键触发时执行的 Lua 调用；不套普通 UI XML 的 `<Ui>` 根元素。
 
 锁定 12.1.0 的暴雪原生实例：[Blizzard_PingUI/Bindings.xml](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_PingUI/Bindings.xml) 使用上述 Bindings/Binding 结构、category 属性及 Lua 调用；同目录 [Blizzard_PingUI.toc](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_PingUI/Blizzard_PingUI.toc) 未列入该文件。本项目据此采用根目录独立加载方式。该结论来自暴雪源码布局和用法对照，**不是实机加载验收**；没有验证重复列入 TOC 的具体错误表现。仍须在客户端确认快捷键设置中的名称、分类与按键调用。
+
+## 0.3.0：追随者场景、诊断与手动宏
+
+本轮只观察到游戏中运行 0.2.0 的追随者地下城画面，并收到用户“脱离战斗后仍提示通报受限”的反馈。尚未取得该场景的实际 API 诊断结果，不能断定它来自聊天锁定、目标名称保密还是成员信息保密。0.3.0 新增明确区分的提示和 `/ptw status`，后者仅在本地显示公开状态与保密标志，不输出真实名称或发送消息。新增功能尚未在游戏中加载验证；更新安装文件不等于实机通过。
+
+`InChatMessagingLockdown` 的生成说明只承诺查询聊天 API 的安全限制。对应 secret predicate 列出 Encounter、ChallengeMode、PvPMatch 和通信受限地图，没有将普通 Combat 单独列入；不能把它简化成“所有副本”或“所有战斗”，也不能用脱战状态证明已解除限制。`UnitName` 的身份 predicate 则未将战斗作为必要前提；compound token 的整条链参与判断。元数据不足以进一步证明“追随者副本的每个 NPC 在整段副本中始终保密”。应分别检查 `partyN` 成员和 `partyNtarget` 目标的实际返回值。[ChatInfoDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/ChatInfoDocumentation.lua)、[SecretPredicatesDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretPredicatesDocumentation.lua)
+
+`C_Secrets.ShouldUnitIdentityBeSecret(unit)` 提供公开 bool，可用于进一步人工诊断身份规则；但 `UnitName` 的 PvP 玩家例外使它不能完全代替对实际返回值的 `issecretvalue` 检查。[SecretPredicateAPIDocumentation.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/SecretPredicateAPIDocumentation.lua)
+
+0.3.0 将临时限制标志限定为 `Enum.AddOnRestrictionType.Chat`（5）：Activating（1）或 Active（2）设置，Inactive（0）清除；不再因任意 Combat/Map 事件就暂时认定聊天锁定。下一帧仍查询实际聊天状态。`C_RestrictedActions.IsAddOnRestrictionActive` 在限制事件派发期间总返回 false，文档也没有承诺它与 `InChatMessagingLockdown` 完全等价，因此不能直接替换后者。该修复只处理无关事件引发的短暂误拦截，不解除游戏本身的限制。[状态枚举](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/RestrictedActionsConstantsDocumentation.lua)、[限制查询与事件](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/RestrictedActionsDocumentation.lua)
+
+暴雪的[追随者地下城介绍](https://worldofwarcraft.blizzard.com/en-us/news/24054790)确认 NPC 会加入队伍补齐成员，但没有说明其名称秘密值或插件聊天的特别豁免。本次未找到追随者专有的聊天禁令，也未找到“公开固定文字的插件按钮在聊天锁定时一定允许发送”的官方保证；不据此放宽发送检查。
+
+用户可自行创建并亲自按下原生宏，作为单独的手动通报候选：
+
+```text
+/p 请集火 %t
+```
+
+历史[暴雪官方在线手册](https://bnetcmsus-a.akamaihd.net/cms/template_resource/LO0VQ46XB1281555957773363.pdf)印刷第 38 页（PDF 第 20 页）以 `%t` 展示用户宏的目标名称替换；这证明该原生功能的官方历史用法，不是 12.1.0 追随者场景测试结果。2026-03-01 的[官方宏公告](https://us.forums.blizzard.com/en/wow/t/macro-changes-now-live-target-markers-and-chat-messages/2261956/1)继续允许满足条件的组内宏聊天：活动遭遇内仍受组员同副本与节流等条件限制。原生宏的 `%t` 替换与插件先读取 `UnitName`、拼接后调用 `SendChatMessage` 是不同执行路径；不能把前者视作后者的秘密值豁免，也不将宏结果读回以恢复受限数据。本次没有自动创建宏或修改绑定，没有实测该宏在用户场景中的效果。
+
+## 0.3.0：多行模板编辑器的原生依据
+
+12.1.0 的[暴雪宏编辑器 XML](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_MacroUI/Blizzard_MacroUI.xml)将多行 EditBox 作为 ScrollChild，初始大小与视口相同；通过 `ScrollingEdit_OnCursorChanged`、`ScrollingEdit_OnTextChanged` 和 `ScrollingEdit_OnUpdate` 处理光标与滚动，没有按文本手动增高的逻辑。公共 [InputBoxTemplates.xml](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_SharedXML/Shared/InputBox/InputBoxTemplates.xml)中的 `InputScrollFrameTemplate` 同样使用仅顶部定位的多行 EditBox；[对应 Lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_SharedXML/Shared/InputBox/InputBoxTemplates.lua)设置宽度，并在滚动范围可用时更新光标位置。由这些原生用法可知，初始 `SetSize` 本身不应被视作阻止多行自然增高；但底部锚点锁高、即时布局时序及鼠标选区仍需在客户端检查。
+
+`SetMultiLine`、`SetMaxBytes`、`SetMaxLetters`、`SetTextInsets`、`SetAltArrowKeyMode` 均在当前 [EditBox API](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_APIDocumentationGenerated/SimpleEditBoxAPIDocumentation.lua)中。`SetTextInsets` 仅设置留白；字符/字节限制不负责禁用 markup。`SetAltArrowKeyMode(false)` 用于普通方向键光标操作，不处理转义。生成文档未提供 EditBox 的 `SetIgnoreMarkup`。
+
+编辑器的原文与 UI 竖线表示应分开处理，并验证成对转换后仍保留单个及连续竖线；暴雪 [AccountLogin.lua](https://github.com/Gethe/wow-ui-source/blob/12.1.0/Interface/AddOns/Blizzard_GlueXML/Mainline/AccountLogin.lua)也对 EditBox 读取结果执行 `||` 到 `|` 的转换。模板限制按还原后的原文字节校验，不能拿 `SetMaxLetters` 代替 8192 字节总限制。`{rt%mark}` 应保留为编辑文字，不调用聊天图标替换函数。源码对照与离线转换测试均不能证明真实客户端的输入、粘贴、长行换行及滚动效果已通过。

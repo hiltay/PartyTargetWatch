@@ -1,4 +1,28 @@
-## 0.2.0 — Beta
+## 0.3.0 — Beta
+
+- Added a multiline declaration-template editor through **通报格式…** in settings or `/ptw formats`, with local draft sample tests that send no messages. Saving applies templates, clears old declarations and persists configuration.
+- Supports up to 20 templates, 255 bytes each and 8192 bytes total input. Each requires one `%mark` and permits up to two nonempty `%text` wildcards; all other text is literal. Full-message matching follows template order and rejects unknown placeholders or ambiguous marker matches within a template.
+- Defaults: `我打断%mark` and `我的焦点打断是 {rt%mark}`. Blank lines are ignored; saving an empty list stops new records, while the fixed cancellation phrase still works.
+- Added background-only opacity from 0 to 1, default 0.88. Text and icons remain visible at zero.
+- Added specific chat/target/member restriction messages and `/ptw status` for local public diagnostics without real names or outgoing messages.
+- Fixed brief false chat blocks from unrelated restriction events. Actual game restrictions remain; follower-dungeon calls are not claimed universally fixed.
+
+69 Lua mock scenarios passed (37 UI, 32 communication); delivery checks: 7 passed, 1 skipped for Windows symbolic-link privilege. New features have not been loaded and validated in game. Updating installed files is not live verification. CurseForge materials remain prepared, not submitted or published.
+
+## 0.3.0 — 测试版
+
+- 新增多行声明模板编辑器：设置中的“通报格式…”或 `/ptw formats`；草稿样本测试不发送消息，保存才生效、清空旧声明并持久化。
+- 最多 20 条、每条 255 字节、总输入 8192 字节；恰好一个 `%mark`，最多两个非空 `%text`，其余字面整句匹配。按有效模板顺序识别，拒绝未知占位符和单模板内的标记歧义。
+- 默认 `我打断%mark` 与 `我的焦点打断是 {rt%mark}`；忽略空白行，保存空列表停止新记录，固定取消语句仍有效。
+- 新增背景不透明度 `0`–`1`，默认 `0.88`；仅影响背景、边框与行底色，不影响文字和图标。
+- 细分聊天锁定、目标/成员信息受保护提示，新增 `/ptw status` 本地公开诊断，不输出真实名称或发送消息。
+- 修复无关限制事件造成的短暂聊天误拦截；保留游戏真实限制，不宣称解决所有追随者通报问题。
+
+69 个 Lua mock 通过（37 UI、32 通信）；交付检查 7 通过、1 因 Windows 符号链接权限跳过。新增功能尚未在游戏中加载验证，更新安装文件不等于实机通过。CurseForge 资料仍为 prepared，尚未提交或发布。
+
+---
+
+## 0.2.0 — Beta (historical)
 
 - Added target raid markers and per-scene visibility controls.
 - Added manual target calls through a button, member rows, `/ptw announce`, and a user-assigned key binding; calls are throttled and require public data and a group.
@@ -11,7 +35,7 @@ Version 0.2.0 has passed offline mock and delivery checks only. Its new features
 
 ---
 
-## 0.2.0 — 测试版
+## 0.2.0 — 测试版（历史）
 
 - 新增目标团队标记和按场景显示筛选。
 - 新增按钮、成员行、`/ptw announce` 及用户自行绑定按键的手动目标通报；需组队、公开可读信息并受节流限制。

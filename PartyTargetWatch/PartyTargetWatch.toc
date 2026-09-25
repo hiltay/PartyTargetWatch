@@ -4,7 +4,7 @@
 ## Notes: Group targets, raid markers, manual calls, and optional public focus sharing.
 ## Notes-zhCN: 队友目标与标记、快速通报和可选焦点共享；输入 /ptw settings 设置。
 ## Author: PartyTargetWatch contributors
-## Version: 0.2.0
+## Version: 0.3.0
 ## SavedVariables: PartyTargetWatchDB
 ## IconTexture: Interface\Icons\Ability_Hunter_SniperShot
 

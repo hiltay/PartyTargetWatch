@@ -2,7 +2,7 @@
   "name": "PartyTargetWatch",
   "game": "World of Warcraft",
   "flavor": "Retail",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "game_versions": [
     "12.1.0"
   ],
@@ -11,7 +11,7 @@
   "source_url": "https://github.com/hiltay/PartyTargetWatch",
   "issues_url": "https://github.com/hiltay/PartyTargetWatch/issues",
   "recommended_release_type": "beta",
-  "release_type_reason": "Version 0.2.0 has offline mock coverage only; its new features have not been live-tested. Historical 0.1.0 solo checks do not validate this version.",
+  "release_type_reason": "Version 0.3.0 has offline mock coverage only; its new features have not been loaded and validated in game. Updating installed files and observations of historical versions do not validate this version.",
   "in_game_ui_locales": [
     "zhCN"
   ],
@@ -30,10 +30,15 @@
   },
   "icon_512_source": "icon-512.png",
   "icon_rights": "Original vector artwork created for PartyTargetWatch, distributed under the MIT License; no third-party game, platform, or addon artwork used.",
-  "archive_relative_path": "../../dist/PartyTargetWatch-0.2.0.zip",
+  "archive_relative_path": "../../dist/PartyTargetWatch-0.3.0.zip",
   "live_verified": [],
   "not_live_verified": [
-    "Version 0.2.0 live-client behavior",
+    "Version 0.3.0 live-client behavior",
+    "Multiline declaration editor, cursor scrolling, Chinese input and literal pipe preservation",
+    "Draft sample tests, save/cancel boundaries and template persistence",
+    "Background-only opacity and transparent background behavior",
+    "Follower-dungeon denial reasons and local /ptw status diagnostics",
+    "User-created native /p focus-fire macro in Retail 12.1.0 follower dungeons",
     "Target raid markers and scene visibility",
     "Manual target calls and user-assigned key binding",
     "Cross-client public focus sharing",
@@ -42,7 +47,7 @@
     "Combat and Mythic+ restriction handling",
     "Saved-setting persistence"
   ],
-  "compatibility_note": "Only publicly readable data may be transmitted. Mythic+ and other game restrictions are not bypassed through ordinary chat or external services. Declarations are assignments, not actual focus. Full compatibility and delivery are not guaranteed.",
+  "compatibility_note": "Only publicly readable data may be transmitted. Declarations are assignments, not actual focus. Leaving combat does not guarantee readable NPC names or unlocked chat. The unrelated restriction-event false block is fixed; all follower-dungeon restrictions are not claimed fixed. A manually pressed native /p macro is a separate game path, not an exemption for addon SendChatMessage or secret serialization.",
   "publication_status": "prepared",
   "historical_live_verified": {
     "version": "0.1.0",
@@ -61,11 +66,29 @@
   ],
   "focus_snapshot_ttl_seconds": 12,
   "chat_declaration_ttl_seconds": 300,
+  "declaration_template_limits": {
+    "nonempty_templates": 20,
+    "bytes_per_template": 255,
+    "total_input_bytes": 8192,
+    "mark_placeholders_per_template": 1,
+    "max_nonempty_text_placeholders_per_template": 2
+  },
+  "declaration_default_templates": [
+    "我打断%mark",
+    "我的焦点打断是 {rt%mark}"
+  ],
+  "background_opacity": {
+    "minimum": 0,
+    "maximum": 1,
+    "default": 0.88,
+    "affects": "Background, border and row fills only; text and icons remain visible."
+  },
   "offline_test_results": {
-    "lua_ui_passed": 24,
-    "lua_communication_passed": 17,
+    "lua_total_passed": 69,
+    "lua_ui_passed": 37,
+    "lua_communication_passed": 32,
     "delivery_passed": 7,
     "delivery_skipped": 1,
-    "skip_reason": "Windows symbolic-link creation permission unavailable"
+    "skip_reason": "Windows symbolic-link creation permission unavailable (WinError 1314)"
   }
 }

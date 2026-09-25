@@ -1,1 +1,1 @@
-Party targets, manual target calls and optional public focus sharing for WoW Retail, with a Simplified Chinese interface.
+Party targets, manual calls, optional public focus sharing and customizable chat declarations for WoW Retail. Simplified Chinese UI.

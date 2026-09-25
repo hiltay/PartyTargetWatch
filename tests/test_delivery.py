@@ -63,7 +63,7 @@ class DeliveryTests(unittest.TestCase):
 
     def test_release_zip_exact_contents_and_determinism(self) -> None:
         self.run_tool("package.py")
-        archive_path = self.repo / "dist" / "PartyTargetWatch-0.2.0.zip"
+        archive_path = self.repo / "dist" / "PartyTargetWatch-0.3.0.zip"
         initial = archive_path.read_bytes()
         expected = {f"{ADDON}/{ADDON}.lua", f"{ADDON}/{ADDON}.toc",
                     f"{ADDON}/Communication.lua", f"{ADDON}/Settings.lua", f"{ADDON}/Bindings.xml",
